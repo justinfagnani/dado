@@ -45,7 +45,7 @@ class NeedsModule {
   NeedsModule(Module1 module);
 }
 
-// a class that's not injectable
+// a class that's not injectable, and so needs a provider function
 class Provided {
   final int i;
   Provided(int this.i, Foo foo);
@@ -60,10 +60,10 @@ class Module1 extends Module {
   // an instance of a type, similar to bind().toInstance() in Guice
   String string = "a";
   
-  // a singleton, similar to bind().to().in(Singleton.class)
+  // a singleton, similar to bind().to().in(Singleton.class) in Guice
   Foo get foo;
   
-  // a factory binding, similar to bind().to()
+  // a factory binding, similar to bind().to() in Guice
   Bar newBar();
   
   // to test that direct cyclical dependencies fail. TODO: indirect cycles

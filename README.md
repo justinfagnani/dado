@@ -16,27 +16,28 @@ declaring an abstract method:
       Foo get foo;
     } 
 
+See the tests for more examples.
 
 Principles
 ----------
 
-  1. _Idiomatic_ Dart is a different language that JavaScript or Java and has
+  1. __Idiomatic__ Dart is a different language that JavaScript or Java and has
      different capabilities and styles. Part of Dado's different approach is
      driven by a desire to figure out exactly what a Dart DI framework could
      look like. We try to use language features to drive configuration whenever
      possible.
-  2. _Simplicity_ Dado has very few concepts, `Module`s are both
+  2. __Simplicity__ Dado has very few concepts, Modules are both
      configuration and container, so there's no separate injector as in Guice.
      Dado only support constructor injection.
-  3. _Toolability_ Dado modules are configured by defining members on a `Module`
+  3. __Toolability__ Dado modules are configured by defining members on a Module
      subclass. The return type of the variable or method defines the binding.
      This means that 'Find References' will show the module. It also means that
      the module can be used to get instances in a type-safe manner, by calling
      a method, so you get code-completion if you use the module directly.
-  4. _Hierarchical_ Dart is at home on the web and in the DOM, and the DOM is
+  4. __Hierarchical__ Dart is at home on the web and in the DOM, and the DOM is
      hierarchical. Interesting applications of DI will involve bindings
      per-node that are visible to subtrees. Enabling this is a high priority for
-     Dado.
+     Dado, so deeply hierarchical modules should perform well.
      
      
 Example
@@ -53,14 +54,19 @@ Example
 	  String serverAddress = "127.0.0.1";
 	  
 	  // Getters define a singleton, similar to bind().to().in(Singleton.class)
+	  // in Guice
 	  Foo get foo;
 	    
-	  // Methods define a factory binding, similar to bind().to()
+	  // Methods define a factory binding, similar to bind().to() in Guice
 	  Bar newBar();
 	  
-	  // Methods that delegate to bind define mutable factory bindings that are
-	  // overridable by child modules.
-	  Baz newBaz() => bound(Baz);
+	  // Methods that delegate to getByType() define mutable factory bindings
+	  // that are overridable.
+	  Baz get baz => getByType(Baz).singleton;
+
+      // Mutable bindings can be made to provider methods	  
+	  Qux newQux() => getByType(Qux)
+	      .providedBy((Foo foo) => new Qux(foo, 'not injected')).newInstance();
 	}
 	
 	class Bar {
@@ -75,7 +81,7 @@ Example
 Status
 ------
 
-Dado is a prrof-of-concept. It has a few tests, but has not been used in
+Dado is a proof-of-concept. It has a few tests, but has not been used in
 production yet. It also has some several limitations due to bugs and missing
 features in mirrors.
 
@@ -88,9 +94,10 @@ Known Issues and Limitations
    to annotations yet.
  * Dado only runs in the Dart VM for now since it uses mirrors, but a
    code-generation version should be possible.
- * Certain bindings, those made using `Type` objects with `bind()` are resolved
-   using simple names rather than qualified names, so Dado will be unable to
-   distinguish between types from separate libraries with the same name.
+ * Certain bindings, those made using `Type` objects with `getByType()` are
+   resolved using simple names rather than qualified names, so Dado will be
+   unable to distinguish between types from separate libraries with the same
+   name.
  * Functions cannot be injected yet.
  * Named parameters are not supported.
  * No custom scope support. The only scopes are unscoped and singleton.

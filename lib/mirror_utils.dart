@@ -7,21 +7,18 @@ library mirror_utils;
 import 'dart:async';
 import 'mirrors.dart';
 
-InstanceMirror getValue(Future<InstanceMirror> f) =>
-    deprecatedFutureValue(f);
-
 /**
  * Walks the class hierarchy to search for an superclass or interface named
  * [name]. If [useSimple] is true, then it matches on either qualified or simple
  * names.
  */
-bool implements(ClassMirror m, String name, {bool useSimple: false}) {
+bool implements(ClassMirror m, Symbol name, {bool useSimple: false}) {
 //  print(m.qualifiedName);
   if (m == null) return false;
   if (m.qualifiedName == name || (useSimple && m.simpleName == name)) {
     return true;
   }
-  if (m.qualifiedName == "dart.core.Object") return false;
+  if (m.qualifiedName == new Symbol("dart.core.Object")) return false;
   if (implements(m.superclass, name, useSimple: useSimple)) return true;
   for (ClassMirror i in m.superinterfaces) {
     if (implements(i, name, useSimple: useSimple)) return true;
@@ -32,7 +29,7 @@ bool implements(ClassMirror m, String name, {bool useSimple: false}) {
 /**
  * Walks up the class hierarchy to find a declaration with the given [name].
  */
-DeclarationMirror getMemberMirror(ClassMirror classMirror, String name) {
+DeclarationMirror getMemberMirror(ClassMirror classMirror, Symbol name) {
   assert(classMirror != null);
   assert(name != null);
   if (classMirror.members[name] != null) {
@@ -62,14 +59,5 @@ bool hasSuperclass(ClassMirror classMirror) {
       && (superclass.qualifiedName != "dart.core.Object");
 }
 
-ClassMirror getClassMirror(Type type) {
-  // terrible hack because we can't get a qualified name from a Type
-  var name = type.toString();
-  for (var lib in currentMirrorSystem().libraries.values) {
-    if (lib.classes.containsKey(name)) {
-      return lib.classes[name];
-    }
-  }
-}
 
 

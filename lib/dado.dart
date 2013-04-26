@@ -12,40 +12,40 @@ class DefaultBinding<T> {
   final Module _module;
   final Type type;
   var boundTo;
-  
+
   DefaultBinding(Module this._module, Type this.type);
-  
+
   T get singleton {
     var binding = _module._getBinding(type);
     if (binding == null) binding = boundTo;
     if (binding == null) binding = type;
     if (binding is Type) {
-      var mirror = getClassMirror(binding);
-      return _module._singleton(type.toString(), 
-          () => _module._newFromTypeMirror(mirror)).reflectee;
+      var mirror = reflectClass(binding);
+      return _module._singleton(mirror.qualifiedName,
+          () => _module._newFromTypeMirror(mirror));
     } else if (binding is Function) {
       return _module._singleton(type.toString(),
-          () => _module._newFromClosureMirror(reflect(binding)).reflectee);
+          () => _module._newFromClosureMirror(reflect(binding)));
     }
   }
-  
+
   T newInstance() {
     var binding = _module._getBinding(type);
     if (binding == null) binding = boundTo;
     if (binding == null) binding = type;
-    
+
     if (binding is Type) {
-      var mirror = getClassMirror(binding);
-      return _module._newFromTypeMirror(mirror).reflectee;
+      var mirror = reflectClass(binding);
+      return _module._newFromTypeMirror(mirror);
     } else if (binding is Function) {
-      return _module._newFromClosureMirror(reflect(binding)).reflectee;
+      return _module._newFromClosureMirror(reflect(binding));
     }
   }
-  
+
   DefaultBinding use(Type type) => _bindTo(type);
-  
+
   DefaultBinding providedBy(Function f) => _bindTo(f);
-  
+
   DefaultBinding _bindTo(dynamic boundTo) {
     this.boundTo = boundTo;
     return this;
@@ -56,52 +56,52 @@ class OverrideBinding {
   final Module _module;
   final Type type;
   var boundTo;
-  
+
   OverrideBinding(Module this._module, Type this.type);
-  
+
   OverrideBinding to(binding) {
     _module._bindings[type] = binding;
   }
 }
 
 /**
- * A Module is a container of instances. 
+ * A Module is a container of instances.
  */
 abstract class Module {
   Module _parent;
-  
-  Map<String, InstanceMirror> _singletons = {};
+
+  Map<Symbol, Object> _singletons = new Map<Symbol, Object>();
   Map<Type, dynamic> _bindings = new Map<Type, dynamic>();
-  
-  InstanceMirror _mirror;
-  
+
+  InstanceMirror _moduleMirror;
+
   Module() {
-    _mirror = reflect(this);
+    _moduleMirror = reflect(this);
   }
-  
+
   Module.childOf(Module parent) {
     this._parent = parent;
-    _mirror = reflect(this);
+    _moduleMirror = reflect(this);
   }
-  
+
   /**
    * Creates a child of this module that can have it's own binding overrides.
    */
   Module createChild() =>
-    getValue(_mirror.type.newInstance('childOf', [_mirror], null)).reflectee;
+        _moduleMirror.type.newInstance(new Symbol('childOf'), [this], null).reflectee;
 
   /**
    * Overrides an existing mutable binding, or defines a new binding, for
    * [type]. Non-mutable bindings (defined with abstract methods) are not
    * overriden. No error for attempting to override a non-mutable binding is
    * reported yet.
-   * 
+   *
    * Example:
-   * 
+   *
    *     class MyModule {
    *       Foo get foo => getByType(Foo).singleton;
    *     }
-   *     
+   *
    *     main() {
    *       var module = new MyModule();
    *       module.bind(Foo).to(SubclassOfFoo);
@@ -109,23 +109,23 @@ abstract class Module {
    *     }
    */
   OverrideBinding bind(Type type) => new OverrideBinding(this, type);
-  
+
   /**
    * Defines the default for a mutable binding for a type in a module. Only call
    * this method in the module declaration. Returns a binder which has method
    * [newInstance] and getter [cingleton] to define the behavior of the binding.
-   * 
+   *
    * The binding defined here can be overridden by subsequent calls to [bind].
-   * 
+   *
    * Example:
-   * 
+   *
    *     class MyModule {
    *       Foo newFoo() => getByType(Foo).newInstance();
    *       Bar get get => getByType(Bar).singleton;
    *     }
    */
   DefaultBinding getByType(Type type) => new DefaultBinding(this, type);
-  
+
   dynamic _getBinding(Type type) {
     if (_bindings.containsKey(type)) {
       return _bindings[type];
@@ -134,26 +134,27 @@ abstract class Module {
     }
     return null;
   }
-  
+
   /**
    * Get an instance with a Type named [typename].
-   * 
+   *
    * Searches through the members of the module to find one that's return type
    * equals [typename], then invokes the member, using this module to get
-   * instances for constructor parameters, if necessary. 
+   * instances for constructor parameters, if necessary.
    */
   Object getInstanceOf(Type type) {
-    return _getType(type.toString()).reflectee;
+    return _newFromTypeMirror(reflectClass(type));
   }
-    
-  InstanceMirror _getType(String typename) {
-    if (implements(_mirror.type, typename, useSimple: true)) {
-      return _mirror;
+
+  Object _getType(Symbol typename) {
+    //TODO (adambender): Need to allow for injector to be injected, not module
+    if (implements(_moduleMirror.type, typename, useSimple: true)) {
+      return this;
     }
-    for (var member in _mirror.type.members.values) {
+    for (var member in _moduleMirror.type.members.values) {
       if (member is VariableMirror) {
         if (implements(member.type, typename, useSimple: true)) {
-          return getValue(_mirror.getField(member.simpleName));
+          return _moduleMirror.getField(member.simpleName).reflectee;
         }
       } else if (member is MethodMirror) {
         if (implements(member.returnType, typename, useSimple: true)) {
@@ -162,12 +163,12 @@ abstract class Module {
       }
     }
   }
-  
+
   /**
    * Create a new instance with a type represented by [m], resolving
    * constructor dependencies.
    */
-  InstanceMirror _newFromTypeMirror(TypeMirror m) {
+  Object _newFromTypeMirror(TypeMirror m) {
     if (m is ClassMirror) {
       // Choose contructor using @inject when we can
       MethodMirror ctor = (m.constructors.length == 1)
@@ -178,41 +179,41 @@ abstract class Module {
             " or a single constructor");
       }
       // resolve dependencies
-      var pargs = ctor.parameters.map((p) => 
+      var pargs = ctor.parameters.map((p) =>
           _getType(p.type.qualifiedName)).toList();
-      return getValue(m.newInstance(ctor.constructorName, pargs, null));
+      return m.newInstance(ctor.constructorName, pargs, null).reflectee;
     }
   }
-  
-  InstanceMirror _newFromClosureMirror(ClosureMirror m) {
-    var pargs = m.function.parameters.map((p) => 
-        _getType(p.type.simpleName).reflectee).toList();
-    return reflect(Function.apply(m.reflectee, pargs));
+
+  Object _newFromClosureMirror(ClosureMirror m) {
+    var pargs = m.function.parameters.map((p) =>
+        _getType(p.type.simpleName)).toList();
+    return Function.apply(m.reflectee, pargs);
   }
-  
-  InstanceMirror _singleton(String typeName, InstanceMirror f()) {
+
+  Object _singleton(Symbol typeName, InstanceMirror f()) {
     if (_singletons.containsKey(typeName)) {
       return _singletons[typeName];
     } else {
       var instance = f();
       _singletons[typeName] = instance;
       return instance;
-    }    
+    }
   }
-  
-  noSuchMethod(InvocationMirror im) {
-    var member = getMemberMirror(_mirror.type, im.memberName);
-    
+
+  noSuchMethod(Invocation im) {
+    var member = getMemberMirror(_moduleMirror.type, im.memberName);
+
     if (member is MethodMirror) {
       if (member.isGetter) {
         var typeName = member.returnType.qualifiedName;
-        return _singleton(typeName, 
-            () => _newFromTypeMirror(member.returnType)).reflectee;
+        return _singleton(typeName,
+            () => _newFromTypeMirror(member.returnType));
       } else {
-        return _newFromTypeMirror(member.returnType).reflectee;
+        return _newFromTypeMirror(member.returnType);
       }
     }
-    
+
     super.noSuchMethod(im);
-  }  
+  }
 }

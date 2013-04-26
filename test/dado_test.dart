@@ -17,7 +17,7 @@ class Foo {
 // object with a singleton dependecy
 class Bar {
   Foo foo;
-  Bar(Foo this.foo);  
+  Bar(Foo this.foo);
   String toString() => "Bar {foo: $foo}";
 }
 
@@ -35,7 +35,7 @@ class SubBaz extends Baz {
   SubBaz(Bar bar) : super(bar);
 }
 
-// object with a cyclic, unscoped dependency 
+// object with a cyclic, unscoped dependency
 class Cycle {
   Cycle(Cycle c);
 }
@@ -52,37 +52,37 @@ class Provided {
 }
 
 class Module1 extends Module {
-  
+
   Module1() : super();
-  
+
   Module1.childOf(Module1 parent) : super.childOf(parent);
-  
+
   // an instance of a type, similar to bind().toInstance() in Guice
   String string = "a";
-  
+
   // a singleton, similar to bind().to().in(Singleton.class) in Guice
   Foo get foo;
-  
+
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
-  
+
   // to test that direct cyclical dependencies fail. TODO: indirect cycles
   Cycle newCycle();
-  
+
   // a class that inject the module
   NeedsModule get needsModule;
-  
+
   // a rebindable or mutable binding. can be overriden with rebind()
   Baz get baz => getByType(Baz).singleton;
-  
+
   Provided get provided => getByType(Provided)
       .providedBy((Foo foo) => new Provided(1, foo)).newInstance();
 }
 
 class Module2 extends Module1 {
-  
+
   Foo foo = new Foo('foo2');
-  
+
   SubBar newBar();
 }
 
@@ -98,15 +98,15 @@ main() {
   test('get object by type', () {
     expect(new Module1().getInstanceOf(Foo), new isInstanceOf<Foo>());
   });
-  
+
   test('get object with binding', () {
     expect(new Module1().baz, new isInstanceOf<Baz>());
   });
-  
+
   test('get object with dependencies', () {
     expect(new Module1().newBar(), new isInstanceOf<Bar>());
   });
-  
+
   test('getter defines a singleton', () {
     var module = new Module1();
     var foo = module.foo;
@@ -129,12 +129,12 @@ main() {
     expect(provided, new isInstanceOf<Provided>());
     expect(provided.i, 1);
   });
-  
+
   test('module subclass', () {
     var module = new Module2();
     var foo = module.foo;
   });
-  
+
   test('override singleton binding', () {
     var module = new Module2();
     var foo = module.foo;
@@ -146,12 +146,12 @@ main() {
     var bar = module.newBar();
     expect(bar, new isInstanceOf<Bar>());
   });
-  
+
   test('deendency cycles throw', () {
     var module = new Module1();
     expect(() => module.newCycle(), throws);
   });
-  
+
   test('inject the module', () {
     var module = new Module1();
     var m = module.needsModule;

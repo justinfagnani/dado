@@ -31,6 +31,11 @@ class Baz {
   Baz(Bar this.bar);
 }
 
+class SingleBaz {
+  Bar bar;
+  SingleBaz(Bar this.bar);
+}
+
 class SubBaz extends Baz {
   SubBaz(Bar bar) : super(bar);
 }
@@ -75,6 +80,8 @@ class Module1 extends Module {
   // a rebindable or mutable binding. can be overriden with rebind()
   Baz get baz => getByType(Baz).singleton;
 
+  SingleBaz get bazz => singleton(SingleBaz)();
+
   Provided get provided => getByType(Provided)
       .providedBy((Foo foo) => new Provided(1, foo)).newInstance();
 }
@@ -87,6 +94,39 @@ class Module2 extends Module1 {
 }
 
 main() {
+
+  group('dado injector tests',(){
+    Injector injector;
+    setUp((){
+      injector = new Injector([new Module1()]);
+    });
+
+    test('get constant from injector', () {
+      expect(injector.getInstanceOf(String), 'a');
+    });
+
+    test('get object by type from injector', () {
+      expect(injector.getInstanceOf(Foo), new isInstanceOf<Foo>());
+    });
+
+    test('get object with binding from injector', () {
+      expect(injector.getInstanceOf(Baz), new isInstanceOf<Baz>());
+    });
+
+    test('get object with dependencies from injector', () {
+      expect(injector.getInstanceOf(Bar), new isInstanceOf<Bar>());
+    });
+
+    test('getter defines a singleton from injector', () {
+      var module = new Module1();
+      SingleBaz singleBaz1 = injector.getInstanceOf(SingleBaz);
+      SingleBaz singleBaz2 = injector.getInstanceOf(SingleBaz);
+      expect(singleBaz1, new isInstanceOf<SingleBaz>());
+      expect(identical(singleBaz1, singleBaz2), true);
+    });
+
+  });
+
   test('get constant', () {
     expect(new Module1().string, 'a');
   });
@@ -98,6 +138,7 @@ main() {
   test('get object by type', () {
     expect(new Module1().getInstanceOf(Foo), new isInstanceOf<Foo>());
   });
+
 
   test('get object with binding', () {
     expect(new Module1().baz, new isInstanceOf<Baz>());

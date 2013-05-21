@@ -64,12 +64,91 @@ class OverrideBinding {
   }
 }
 
+typedef Object Provider();
+Provider _instanceProvider(o) => () => o;
+
+class Injector{
+  List<Module> _modules;
+  Map<Symbol, Provider> _bindings = new Map<Symbol, Provider>();
+  Map<Symbol, Object> _singletons = new Map<Symbol, Object>();
+
+  final Injector parent;
+
+  Injector(this._modules, {Injector this.parent}){
+    _modules.forEach((Module module){
+      module._setInjector(this);
+      _registerBindings(module);
+    });
+  }
+
+  Injector createChild(Injector parent);
+  Object getInstanceOf(Type type){
+    return _getInstanceOf(reflectClass(type).qualifiedName);
+  }
+
+  Object _getInstanceOf(Symbol symbol){
+    if(_bindings.containsKey(symbol)){
+      return _bindings[symbol]();
+    } else {
+      throw new ArgumentError('Type: ${symbol.toString()} has not been bound.');
+    }
+  }
+
+  Object _getSingletonOf(Symbol symbol){
+    if(!_singletons.containsKey(symbol)){
+      _singletons[symbol] = _newFromTypeMirror(symbol);
+    }
+    return _singletons[symbol];
+  }
+
+  void _registerBindings(Module module){
+    var moduleMirror = reflect(module);
+    reflect(module).type.members.values.forEach((member){
+      if (member is VariableMirror) {
+        _bindings[member.type.qualifiedName] =
+            _instanceProvider(moduleMirror.getField(member.simpleName).reflectee);
+      } else if (member is MethodMirror) {
+        if(member.isAbstract){
+          _bindings[member.returnType.qualifiedName] =() => _newFromTypeMirror(member.returnType);
+        } else if (member.isGetter) {
+          _bindings[member.returnType.qualifiedName] =
+              () => moduleMirror.getField(member.simpleName).reflectee;
+        } else {
+          _bindings[member.returnType.qualifiedName] =
+              () => moduleMirror.invoke(member.simpleName, [], null).reflectee;
+        }
+      }
+    });
+  }
+
+  /**
+   * Create a new instance with a type represented by [m], resolving
+   * constructor dependencies.
+   */
+  Object _newFromTypeMirror(TypeMirror m) {
+    if (m is ClassMirror) {
+      // Choose contructor using @inject when we can
+      MethodMirror ctor = (m.constructors.length == 1)
+          ? m.constructors.values.first
+          : m.constructors[''];
+      if (ctor == null) {
+        throw new ArgumentError("${m.qualifiedName} must have a no-arg constructor"
+            " or a single constructor");
+      }
+      // resolve dependencies
+      var pargs = ctor.parameters.map((p) =>
+          _getInstanceOf(p.type.qualifiedName)).toList();
+      return m.newInstance(ctor.constructorName, pargs, null).reflectee;
+    }
+  }
+}
+
 /**
  * A Module is a container of instances.
  */
 abstract class Module {
   Module _parent;
-
+  Injector _injector;
   Map<Symbol, Object> _singletons = new Map<Symbol, Object>();
   Map<Type, dynamic> _bindings = new Map<Type, dynamic>();
 
@@ -77,6 +156,23 @@ abstract class Module {
 
   Module() {
     _moduleMirror = reflect(this);
+  }
+
+  Function singleton(Type t){
+    () => _injector._getSingletonOf(reflectClass(t).qualifiedName);
+  }
+
+//  getInstance
+//  Object providedBy(Function f){
+//    return _injector._newFromClosureMirror(f);
+//  }
+
+  void _setInjector(Injector injector){
+    if(_injector == null){
+      _injector = injector;
+    } else {
+      throw new StateError("Injector can only be set once.");
+    }
   }
 
   Module.childOf(Module parent) {

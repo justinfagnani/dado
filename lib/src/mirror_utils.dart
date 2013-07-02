@@ -2,15 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library mirror_utils;
+library dado.mirror_utils;
 
 import 'dart:async';
-import 'mirrors.dart';
+import 'dart:mirrors';
 
 /**
- * Walks the class hierarchy to search for an superclass or interface named
+ * Walks the class hierarchy to search for a superclass or interface named
  * [name]. If [useSimple] is true, then it matches on either qualified or simple
- * names.
+ * names, otherwise only qualified names are matched.
  */
 bool implements(ClassMirror m, Symbol name, {bool useSimple: false}) {
 //  print(m.qualifiedName);
@@ -58,6 +58,3 @@ bool hasSuperclass(ClassMirror classMirror) {
   return (superclass != null)
       && (superclass.qualifiedName != "dart.core.Object");
 }
-
-
-

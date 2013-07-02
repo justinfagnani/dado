@@ -21,23 +21,22 @@ class Bar {
   String toString() => "Bar {foo: $foo}";
 }
 
+// subclass of dependency for binding
 class SubBar extends Bar {
   SubBar(Foo foo) : super(foo);
 }
 
-// object with an unscoped dependency
+// object with an unscoped (non-singleton) dependency
 class Baz {
   Bar bar;
   Baz(Bar this.bar);
 }
 
-class SingleBaz {
-  Bar bar;
-  SingleBaz(Bar this.bar);
-}
-
 class SubBaz extends Baz {
   SubBaz(Bar bar) : super(bar);
+}
+
+class Qux {
 }
 
 // object with a cyclic, unscoped dependency
@@ -46,8 +45,9 @@ class Cycle {
 }
 
 // object that depends on the module
-class NeedsModule {
-  NeedsModule(Module1 module);
+class NeedsInjector {
+  Injector injector;
+  NeedsInjector(Injector this.injector);
 }
 
 // a class that's not injectable, and so needs a provider function
@@ -56,11 +56,7 @@ class Provided {
   Provided(int this.i, Foo foo);
 }
 
-class Module1 extends Module {
-
-  Module1() : super();
-
-  Module1.childOf(Module1 parent) : super.childOf(parent);
+abstract class Module1 extends Module {
 
   // an instance of a type, similar to bind().toInstance() in Guice
   String string = "a";
@@ -74,166 +70,165 @@ class Module1 extends Module {
   // to test that direct cyclical dependencies fail. TODO: indirect cycles
   Cycle newCycle();
 
-  // a class that inject the module
-  NeedsModule get needsModule;
+  // a class that injects the module
+  NeedsInjector needsInjector();
 
-  // a rebindable or mutable binding. can be overriden with rebind()
-  Baz get baz => getByType(Baz).singleton;
+  Baz get baz => bindTo(SubBaz).singleton;
 
-  SingleBaz get bazz => singleton(SingleBaz)();
-
-  Provided get provided => getByType(Provided)
+  Provided get provided => bindTo(Provided)
       .providedBy((Foo foo) => new Provided(1, foo)).newInstance();
 }
 
-class Module2 extends Module1 {
+abstract class Module2 extends Module1 {
 
   Foo foo = new Foo('foo2');
 
   SubBar newBar();
+
+  Provided getProvided(Foo foo) => new Provided(2, foo);
+}
+
+abstract class Module3 extends Module {
+
+  Qux get qux;
+
+  Bar newBar() =>bindTo(SubBar).newInstance();
 }
 
 main() {
 
-  group('dado injector tests',(){
+  group('injector',(){
     Injector injector;
+
     setUp((){
-      injector = new Injector([new Module1()]);
+      injector = new Injector([Module1]);
     });
 
-    test('get constant from injector', () {
+    test('should return the value of an instance field', () {
       expect(injector.getInstanceOf(String), 'a');
     });
 
-    test('get object by type from injector', () {
-      expect(injector.getInstanceOf(Foo), new isInstanceOf<Foo>());
+    test('should return a singleton of the return type of a getter', () {
+      var foo1 = injector.getInstanceOf(Foo);
+      var foo2 = injector.getInstanceOf(Foo);
+      expect(foo1, new isInstanceOf<Foo>());
+      expect(identical(foo1, foo2), true);
     });
 
-    test('get object with binding from injector', () {
-      expect(injector.getInstanceOf(Baz), new isInstanceOf<Baz>());
+    test('should create new objects from methods', () {
+      var bar1 = injector.getInstanceOf(Bar);
+      var bar2 = injector.getInstanceOf(Bar);
+      expect(identical(bar1, bar2), false);
     });
 
-    test('get object with dependencies from injector', () {
-      expect(injector.getInstanceOf(Bar), new isInstanceOf<Bar>());
+    test('should provide singleton dependencies', () {
+      var bar1 = injector.getInstanceOf(Bar);
+      var bar2 = injector.getInstanceOf(Bar);
+      expect(identical(bar1.foo, bar2.foo), true);
     });
 
-    test('getter defines a singleton from injector', () {
-      var module = new Module1();
-      SingleBaz singleBaz1 = injector.getInstanceOf(SingleBaz);
-      SingleBaz singleBaz2 = injector.getInstanceOf(SingleBaz);
-      expect(singleBaz1, new isInstanceOf<SingleBaz>());
-      expect(identical(singleBaz1, singleBaz2), true);
+    test('should return a singleton of the type of an explicit binding', () {
+      Baz baz1 = injector.getInstanceOf(Baz);
+      Baz baz2 = injector.getInstanceOf(Baz);
+      expect(baz1, new isInstanceOf<SubBaz>());
+      expect(identical(baz1, baz2), true);
+    });
+
+    test('should invoke provider methods', () {
+      var provided = injector.getInstanceOf(Provided);
+      expect(provided, new isInstanceOf<Provided>());
+      expect(provided.i, 1);
+    });
+
+    test('should use bindings from second module', () {
+      injector = new Injector([Module1, Module2]);
+      var foo = injector.getInstanceOf(Foo);
+      expect(foo, new isInstanceOf<Foo>());
+      expect(foo.name, 'foo2');
+    });
+
+    test('should use bindings from second module', () {
+      injector = new Injector([Module1, Module2]);
+      var provided = injector.getInstanceOf(Provided);
+      expect(provided.i, 2);
+    });
+
+    test('should throw exceptions on dependency cycles', () {
+      expect(() => injector.getInstanceOf(Cycle), throws);
+    });
+
+    test('should inject itself', () {
+      NeedsInjector o = injector.getInstanceOf(NeedsInjector);
+      expect(o.injector, same(injector));
     });
 
   });
 
-  test('get constant', () {
-    expect(new Module1().string, 'a');
+  group('child injector', () {
+    Injector injector;
+    Injector childInjector;
+
+    setUp((){
+      injector = new Injector([Module1], name: 'parent');
+      childInjector = new Injector([Module3], newInstances: [Baz],
+          parent: injector, name: 'child');
+    });
+
+    test("should get a singleton from it's parent", () {
+      var foo1 = injector.getInstanceOf(Foo);
+      var foo2 = childInjector.getInstanceOf(Foo);
+      expect(foo1, same(foo2));
+    });
+
+    test("should use a binding not in it's parent", () {
+      try {
+        var qux1 = injector.getInstanceOf(Qux);
+        expect(true, false);
+      } on ArgumentError catch (e) {
+        // pass
+      }
+      var qux2 = childInjector.getInstanceOf(Qux);
+      expect(qux2, new isInstanceOf<Qux>());
+    });
+
+    test("should use a binding that overrides it's parent", () {
+      var bar1 = injector.getInstanceOf(Bar);
+      expect(bar1, new isInstanceOf<Bar>());
+      var bar2 = childInjector.getInstanceOf(Bar);
+      expect(bar2, new isInstanceOf<SubBar>());
+    });
+
+    test('should have distinct singleton of newInstances', () {
+      var baz1 = injector.getInstanceOf(Baz);
+      var baz2 = childInjector.getInstanceOf(Baz);
+      expect(baz1, isNot(same(baz2)));
+    });
+
+
+    test("should inject itself, not it's parent", () {
+      injector.callInjected((Injector i) {
+        expect(i, same(injector));
+      });
+      childInjector.callInjected((Injector i) {
+        expect(i, same(childInjector));
+      });
+    });
+
+    test("should inject itself into an object defined in it's parent", () {
+      var ni1 = injector.getInstanceOf(NeedsInjector);
+      var ni2 = childInjector.getInstanceOf(NeedsInjector);
+      expect(ni1.injector, same(injector));
+      expect(ni2.injector, same(childInjector));
+    });
+
+    test("should maintain singletons for bindings not in the parent", () {
+      var childInjector2 = new Injector([Module3], newInstances: [Baz],
+          parent: injector, name: 'child 2');
+      var qux1 = childInjector.getInstanceOf(Qux);
+      var qux2 = childInjector2.getInstanceOf(Qux);
+      expect(qux1, isNot(same(qux2)));
+    });
+
   });
 
-  test('get object', () {
-    expect(new Module1().foo, new isInstanceOf<Foo>());
-  });
-
-  test('get object by type', () {
-    expect(new Module1().getInstanceOf(Foo), new isInstanceOf<Foo>());
-  });
-
-
-  test('get object with binding', () {
-    expect(new Module1().baz, new isInstanceOf<Baz>());
-  });
-
-  test('get object with dependencies', () {
-    expect(new Module1().newBar(), new isInstanceOf<Bar>());
-  });
-
-  test('getter defines a singleton', () {
-    var module = new Module1();
-    var foo = module.foo;
-    expect(foo, new isInstanceOf<Foo>());
-    var foo2 = module.foo;
-    expect(identical(foo, foo2), true);
-  });
-
-  test('method creates new instances', () {
-    var module = new Module1();
-    var bar1 = module.newBar();
-    var bar2 = module.newBar();
-    expect(bar1, new isInstanceOf<Bar>());
-    expect(identical(bar1, bar2), false);
-  });
-
-  test('provided binding', () {
-    var module = new Module1();
-    var provided = module.provided;
-    expect(provided, new isInstanceOf<Provided>());
-    expect(provided.i, 1);
-  });
-
-  test('module subclass', () {
-    var module = new Module2();
-    var foo = module.foo;
-  });
-
-  test('override singleton binding', () {
-    var module = new Module2();
-    var foo = module.foo;
-    expect(foo.name, 'foo2');
-  });
-
-  test('override method binding', () {
-    var module = new Module2();
-    var bar = module.newBar();
-    expect(bar, new isInstanceOf<Bar>());
-  });
-
-  test('deendency cycles throw', () {
-    var module = new Module1();
-    expect(() => module.newCycle(), throws);
-  });
-
-  test('inject the module', () {
-    var module = new Module1();
-    var m = module.needsModule;
-  });
-
-  test('inject the module superclass', () {
-    var module = new Module2();
-    var m = module.needsModule;
-  });
-
-  test('child module has distinct singleton', () {
-    var parent = new Module1();
-    Module1 child = parent.createChild();
-    child.string = 'b';
-    expect(parent.string, 'a');
-    expect(child.string, 'b');
-  });
-
-  test('child module overrides binding', () {
-    var parent = new Module1();
-    Module1 child = parent.createChild();
-    child.bind(Baz).to(SubBaz);
-    expect(parent.baz, new isInstanceOf<Baz>());
-    expect(child.baz, new isInstanceOf<SubBaz>());
-  });
-
-  test('descendents inherit overriden binding', () {
-    var parent = new Module1();
-    Module1 child = parent.createChild();
-    Module1 grandchild = child.createChild();
-    child.bind(Baz).to(SubBaz);
-    expect(parent.baz, new isInstanceOf<Baz>());
-    expect(grandchild.baz, new isInstanceOf<SubBaz>());
-  });
-
-  test('rebind with provider', () {
-    var module = new Module1();
-    var provided1 = module.provided;
-    expect(provided1.i, 1);
-    module.bind(Provided).to(() => new Provided(2, null));
-    var provided2 = module.provided;
-    expect(provided2.i, 2);
-  });
 }

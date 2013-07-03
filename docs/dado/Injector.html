@@ -1,0 +1,360 @@
+        <!DOCTYPE html>
+        <html>
+        <head>
+                <meta charset="utf-8">
+        <title>Injector class / dado Library / Dart Documentation</title>
+        <link rel="stylesheet" type="text/css"
+            href="../styles.css">
+        <link href="//fonts.googleapis.com/css?family=Open+Sans:400,600,700,800" rel="stylesheet" type="text/css">
+        <link rel="shortcut icon" href="../favicon.ico">
+        
+        </head>
+        <body data-library="dado" data-type="Injector">
+        <div class="page">
+        <div class="header">
+          <a href="../index.html"><div class="logo"></div></a>
+          <a href="../index.html">Dart Documentation</a>
+         &rsaquo; <a href="../dado.html">dado</a> &rsaquo; <a href="../dado/Injector.html">Injector</a>        <div id="search-box">
+          <input type="search" name="q" id="q" autocomplete="off"
+              class="search-input" placeholder="Search API">
+        </div>
+        
+      </div>
+      <div class="drop-down" id="drop-down"></div>
+      
+        <div class="nav">
+        
+</div>
+<div class="content">
+        <h2><strong>Injector</strong>
+          class
+        </h2>
+        
+<button id="show-inherited" class="show-inherited">Hide inherited</button>
+<div class="doc">
+<p>An Injector constructs objects based on it's configuration. The Injector
+tracks dependencies between objects and uses the bindings defined in its
+modules and parent injector to resolve the dependencies and inject them into
+newly created objects.</p>
+<p>Injectors are rarely used directly, usually only at the initialization of an
+application to create the root objects for the application. The Injector does
+most of it's work behind the scenes, creating objects as neccessary to
+fullfill dependencies.</p>
+<p>Injectors are hierarchical. <a class="crossref" href="../dado/Injector.html#createChild">createChild</a> is used to create injectors that
+inherit their configuration from their parent while adding or overriding
+some bindings.</p>
+<p>An Injector contains a default binding for itself, so that it can be used
+to request instances generically, or to create child injectors. Applications
+should generally have very little injector aware code.</p>
+<pre class="source">
+class Injector {
+ static final Symbol _injectorClassName = reflectClass(Injector).qualifiedName;
+
+ /// The parent of this injector, if it's a child, or null.
+ final Injector parent;
+
+ /// The name of this injector, if one was provided.
+ final String name;
+
+ final List&lt;Symbol&gt; _newInstances;
+ final Map&lt;Symbol, _Provider&gt; _providers = new Map&lt;Symbol, _Provider&gt;();
+ final Map&lt;Symbol, Object&gt; _singletons = new Map&lt;Symbol, Object&gt;();
+
+ /**
+  * Constructs a new Injector using [modules] to provide bindings. If [parent]
+  * is specificed, the injector is a child injector that inherits bindings
+  * from its parent. The modules of a child injector add to or override its
+  * parent's bindings. [newInstances] is a list of types that a child injector
+  * should create distinct instances for, separate from it's parent.
+  * newInstances only apply to singleton bindings.
+  */
+ Injector(List&lt;Type&gt; modules, {Injector this.parent, List&lt;Type&gt; newInstances,
+   String this.name})
+     : _newInstances = (newInstances == null)
+         ? []
+         : newInstances.map(_typeName).toList(growable: false) {
+   if (parent == null &amp;&amp; newInstances != null) {
+     throw new ArgumentError('newInstances can only be specified for child'
+         'injectors.');
+   }
+   modules.forEach(_registerBindings);
+ }
+
+ /**
+  * Creates a child of this Injector with the additional modules installed.
+  * [modules] must be a list of Types that extend Module.
+  * [newInstances] is a list of Types that the child should create new
+  * instances for, rather than use an instance from the parent.
+  */
+ Injector createChild(List&lt;Type&gt; modules, {List&lt;Type&gt; newInstances}) =&gt;
+     new Injector(modules, parent: this);
+
+ /**
+  * Returns an instance of [type].
+  */
+ Object getInstanceOf(Type type) =&gt;
+     _getInstanceOf(_typeName(type), reflectClass(type));
+
+ /**
+  * Execute the function [f], injecting any arguments.
+  */
+ dynamic callInjected(Function f) {
+   var mirror = reflect(f);
+   assert(mirror is ClosureMirror);
+   var pargs = mirror.function.parameters.map((ParameterMirror p) =&gt;
+       _getInstanceOf(p.type.qualifiedName, p.type)).toList();
+   return Function.apply(f, pargs);
+ }
+
+ _Provider _getProvider(Symbol name) =&gt;
+     _providers.containsKey(name)
+         ? _providers[name]
+         : (parent != null)
+             ? parent._getProvider(name)
+             : null;
+
+ Object _getInstanceOf(Symbol name, ClassMirror mirror,
+     {bool allowImplicit: false}) {
+   if (name == _injectorClassName) return this;
+   _Provider provider = _getProvider(name);
+   if (provider == null) {
+     if (allowImplicit == true) {
+       return _newFromTypeMirror(mirror);
+     } else {
+       throw new ArgumentError('Type: $name has not been bound.');
+     }
+   }
+
+   return provider(this);
+ }
+
+ Object _getSingletonOf(Symbol name, ClassMirror mirror) {
+   if (parent == null || _newInstances.contains(name) ||
+       _providers.containsKey(name)) {
+     if (!_singletons.containsKey(name)) {
+       _singletons[name] = _newFromTypeMirror(mirror);
+     }
+     return _singletons[name];
+   } else {
+     return parent._getSingletonOf(name, mirror);
+   }
+ }
+
+ void _registerBindings(Type moduleType){
+   var typeMirror = reflectClass(moduleType);
+   var moduleMirror = typeMirror.newInstance(new Symbol(''), [], null);
+   var module = moduleMirror.reflectee;
+
+   typeMirror.members.values.forEach((member) {
+     if (member is VariableMirror) {
+       // Variables define "to instance" bindings
+       var instance = moduleMirror.getField(member.simpleName).reflectee;
+       _providers[member.type.qualifiedName] = (injector) =&gt; instance;
+     } else if (member is MethodMirror) {
+       if (member.isAbstract) {
+         if (member.isGetter) {
+           // Abstract getters define singleton bindings
+           _providers[member.returnType.qualifiedName] = (injector) {
+             var returnType = member.returnType;
+             return injector
+                 ._getSingletonOf(returnType.qualifiedName, returnType);
+           };
+         } else {
+           // Abstract methods define unscoped bindings
+           _providers[member.returnType.qualifiedName] =
+               (injector) =&gt; injector._newFromTypeMirror(member.returnType);
+         }
+       } else {
+         // Non-abstract methods produce instances by being invoked.
+         //
+         // In order for the method to use the injector to resolve dependencies
+         // it must be aware of the injector and the type we're trying to
+         // construct so we set the module's _currentInjector and
+         // _currentTypeName in the provider function.
+         //
+         // This is a slightly unfortunately coupling of Module to it's
+         // injector, but the only way we could find to make this work. It's
+         // a worthwhile tradeoff for having declarative bindings.
+         if (member.isGetter) {
+           // getters should define singleton bindings
+           _providers[member.returnType.qualifiedName] = (injector) {
+             module._currentInjector = injector;
+             module._currentTypeName = member.returnType.qualifiedName;
+             return moduleMirror.getField(member.simpleName).reflectee;
+           };
+         } else {
+           // methods should define unscoped bindings
+           // TODO(justin): allow parameters in module method? This would make
+           // defining provided bindings much shorter when they rebind to a
+           // new type.
+           var pargs = member.parameters.map((ParameterMirror p) =&gt;
+               _getInstanceOf(p.type.qualifiedName, p.type)).toList();
+           _providers[member.returnType.qualifiedName] = (injector) {
+             module._currentInjector = injector;
+             module._currentTypeName = member.returnType.qualifiedName;
+             return moduleMirror
+                 .invoke(member.simpleName, pargs, null).reflectee;
+           };
+         }
+       }
+     }
+   });
+ }
+
+ /**
+  * Create a new instance with a type represented by [m], resolving
+  * constructor dependencies.
+  */
+ Object _newFromTypeMirror(ClassMirror m) {
+     // Choose contructor using @inject when we can
+     MethodMirror ctor = (m.constructors.length == 1)
+         ? m.constructors.values.first
+         : m.constructors[new Symbol('')];
+     if (ctor == null) {
+       throw new ArgumentError("${m.qualifiedName} must have a no-arg"
+           "constructor or a single constructor");
+     }
+     // resolve dependencies
+     var pargs = ctor.parameters.map((p) =&gt;
+         _getInstanceOf(p.type.qualifiedName, p.type)).toList();
+     return m.newInstance(ctor.constructorName, pargs, null).reflectee;
+ }
+
+ String toString() =&gt; 'Injector: $name';
+}
+</pre>
+</div>
+<div>
+<h3>Constructors</h3>
+<div class="method"><h4 id="Injector">
+<button class="show-code">Code</button>
+new <strong>Injector</strong>(<a href="http://api.dartlang.org/dart_core/List.html">List</a>&lt;<a href="http://api.dartlang.org/dart_core/Type.html">Type</a>&gt; modules, {<a href="../dado/Injector.html">Injector</a> parent, <a href="http://api.dartlang.org/dart_core/List.html">List</a>&lt;<a href="http://api.dartlang.org/dart_core/Type.html">Type</a>&gt; newInstances, <a href="http://api.dartlang.org/dart_core/String.html">String</a> name}) <a class="anchor-link" href="#Injector"
+              title="Permalink to Injector.Injector">#</a></h4>
+<div class="doc">
+<p>Constructs a new Injector using 
+<span class="param">modules</span> to provide bindings. If 
+<span class="param">parent</span>
+is specificed, the injector is a child injector that inherits bindings
+from its parent. The modules of a child injector add to or override its
+parent's bindings. 
+<span class="param">newInstances</span> is a list of types that a child injector
+should create distinct instances for, separate from it's parent.
+newInstances only apply to singleton bindings.</p>
+<pre class="source">
+Injector(List&lt;Type&gt; modules, {Injector this.parent, List&lt;Type&gt; newInstances,
+ String this.name})
+   : _newInstances = (newInstances == null)
+       ? []
+       : newInstances.map(_typeName).toList(growable: false) {
+ if (parent == null &amp;&amp; newInstances != null) {
+   throw new ArgumentError('newInstances can only be specified for child'
+       'injectors.');
+ }
+ modules.forEach(_registerBindings);
+}
+</pre>
+</div>
+</div>
+</div>
+<div>
+<h3>Properties</h3>
+<div class="field"><h4 id="name">
+<button class="show-code">Code</button>
+final <a href="http://api.dartlang.org/dart_core/String.html">String</a>         <strong>name</strong> <a class="anchor-link"
+            href="#name"
+            title="Permalink to Injector.name">#</a>
+        </h4>
+        <div class="doc">
+<p>The name of this injector, if one was provided.</p>
+<pre class="source">
+final String name
+</pre>
+</div>
+</div>
+<div class="field"><h4 id="parent">
+<button class="show-code">Code</button>
+final <a href="../dado/Injector.html">Injector</a>         <strong>parent</strong> <a class="anchor-link"
+            href="#parent"
+            title="Permalink to Injector.parent">#</a>
+        </h4>
+        <div class="doc">
+<p>The parent of this injector, if it's a child, or null.</p>
+<pre class="source">
+final Injector parent
+</pre>
+</div>
+</div>
+</div>
+<div>
+<h3>Methods</h3>
+<div class="method"><h4 id="callInjected">
+<button class="show-code">Code</button>
+dynamic <strong>callInjected</strong>(<a href="http://api.dartlang.org/dart_core/Function.html">Function</a> f) <a class="anchor-link" href="#callInjected"
+              title="Permalink to Injector.callInjected">#</a></h4>
+<div class="doc">
+<p>Execute the function 
+<span class="param">f</span>, injecting any arguments.</p>
+<pre class="source">
+dynamic callInjected(Function f) {
+ var mirror = reflect(f);
+ assert(mirror is ClosureMirror);
+ var pargs = mirror.function.parameters.map((ParameterMirror p) =&gt;
+     _getInstanceOf(p.type.qualifiedName, p.type)).toList();
+ return Function.apply(f, pargs);
+}
+</pre>
+</div>
+</div>
+<div class="method"><h4 id="createChild">
+<button class="show-code">Code</button>
+<a href="../dado/Injector.html">Injector</a> <strong>createChild</strong>(<a href="http://api.dartlang.org/dart_core/List.html">List</a>&lt;<a href="http://api.dartlang.org/dart_core/Type.html">Type</a>&gt; modules, {<a href="http://api.dartlang.org/dart_core/List.html">List</a>&lt;<a href="http://api.dartlang.org/dart_core/Type.html">Type</a>&gt; newInstances}) <a class="anchor-link" href="#createChild"
+              title="Permalink to Injector.createChild">#</a></h4>
+<div class="doc">
+<p>Creates a child of this Injector with the additional modules installed.
+
+<span class="param">modules</span> must be a list of Types that extend Module.
+
+<span class="param">newInstances</span> is a list of Types that the child should create new
+instances for, rather than use an instance from the parent.</p>
+<pre class="source">
+Injector createChild(List&lt;Type&gt; modules, {List&lt;Type&gt; newInstances}) =&gt;
+   new Injector(modules, parent: this);
+</pre>
+</div>
+</div>
+<div class="method"><h4 id="getInstanceOf">
+<button class="show-code">Code</button>
+<a href="http://api.dartlang.org/dart_core/Object.html">Object</a> <strong>getInstanceOf</strong>(<a href="http://api.dartlang.org/dart_core/Type.html">Type</a> type) <a class="anchor-link" href="#getInstanceOf"
+              title="Permalink to Injector.getInstanceOf">#</a></h4>
+<div class="doc">
+<p>Returns an instance of 
+<span class="param">type</span>.</p>
+<pre class="source">
+Object getInstanceOf(Type type) =&gt;
+   _getInstanceOf(_typeName(type), reflectClass(type));
+</pre>
+</div>
+</div>
+<div class="method"><h4 id="toString">
+<button class="show-code">Code</button>
+<a href="http://api.dartlang.org/dart_core/String.html">String</a> <strong>toString</strong>() <a class="anchor-link" href="#toString"
+              title="Permalink to Injector.toString">#</a></h4>
+<div class="doc">
+<div class="inherited">
+<p>Returns a string representation of this object.</p>
+<div class="docs-inherited-from">docs inherited from <a href="http://api.dartlang.org/dart_core/Object.html">Object</a> </div></div>
+<pre class="source">
+String toString() =&gt; 'Injector: $name';
+</pre>
+</div>
+</div>
+</div>
+        </div>
+        <div class="clear"></div>
+        </div>
+        <div class="footer">
+          <div>This page was generated at 2013-07-02 17:14:02.553</div>
+        </div>
+        <script async src="../client-live-nav.js"></script>
+        </body></html>
+        

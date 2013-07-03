@@ -1,0 +1,81 @@
+        <!DOCTYPE html>
+        <html>
+        <head>
+                <meta charset="utf-8">
+        <title>Module abstract class / dado Library / Dart Documentation</title>
+        <link rel="stylesheet" type="text/css"
+            href="../styles.css">
+        <link href="//fonts.googleapis.com/css?family=Open+Sans:400,600,700,800" rel="stylesheet" type="text/css">
+        <link rel="shortcut icon" href="../favicon.ico">
+        
+        </head>
+        <body data-library="dado" data-type="Module">
+        <div class="page">
+        <div class="header">
+          <a href="../index.html"><div class="logo"></div></a>
+          <a href="../index.html">Dart Documentation</a>
+         &rsaquo; <a href="../dado.html">dado</a> &rsaquo; <a href="../dado/Module.html">Module</a>        <div id="search-box">
+          <input type="search" name="q" id="q" autocomplete="off"
+              class="search-input" placeholder="Search API">
+        </div>
+        
+      </div>
+      <div class="drop-down" id="drop-down"></div>
+      
+        <div class="nav">
+        
+</div>
+<div class="content">
+        <h2><strong>Module</strong>
+          abstract class
+        </h2>
+        
+<button id="show-inherited" class="show-inherited">Hide inherited</button>
+<div class="doc">
+<p>A Module is a declaration of bindings that instruct an <a class="crossref" href="../dado/Injector.html">Injector</a> how to
+create objects.</p>
+<p>Bindings are declared with members on a Module. The return type of the member
+defines what type the binding is for. The kind of member (variable, getter,
+method) defines the type of binding:</p><ul><li>
+<p>Variables define instance bindings. The type of the variable is bound to
+  its value.</p></li><li>Abstract getters define singleton bindings.</li><li>
+<p>Abstract methods define unscoped bindings. A new instance is created every
+  time <code>Injector.getInstance</code> is called.</p></li><li>
+<p>A non-abstract method must return instances of its return type. Often
+  this will be done by calling <a class="crossref" href="../dado/Module.html#bindTo">bindTo</a> with a type that is bound to, and
+  then either <code>Binder.singleton</code> or <code>Binder.newInstance</code> dependeing on
+  whether the method is a getter or not. Getters define singletons and should
+  call <code>Binder.singleton</code>, methods should call <code>Binder.newInstance</code>.</p></li></ul>
+<pre class="source">
+abstract class Module {
+ Injector _currentInjector;
+ Symbol _currentTypeName;
+
+ Binder bindTo(Type type) =&gt;
+     new Binder(_currentInjector, _currentTypeName, type);
+}
+</pre>
+</div>
+<div>
+<h3>Methods</h3>
+<div class="method"><h4 id="bindTo">
+<button class="show-code">Code</button>
+<a href="../dado/Binder.html">Binder</a> <strong>bindTo</strong>(<a href="http://api.dartlang.org/dart_core/Type.html">Type</a> type) <a class="anchor-link" href="#bindTo"
+              title="Permalink to Module.bindTo">#</a></h4>
+<div class="doc">
+<pre class="source">
+Binder bindTo(Type type) =&gt;
+   new Binder(_currentInjector, _currentTypeName, type);
+</pre>
+</div>
+</div>
+</div>
+        </div>
+        <div class="clear"></div>
+        </div>
+        <div class="footer">
+          <div>This page was generated at 2013-07-02 17:14:02.529</div>
+        </div>
+        <script async src="../client-live-nav.js"></script>
+        </body></html>
+        

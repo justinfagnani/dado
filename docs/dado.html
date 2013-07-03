@@ -1,0 +1,112 @@
+        <!DOCTYPE html>
+        <html>
+        <head>
+                <meta charset="utf-8">
+        <title>dado Library / Dart Documentation</title>
+        <link rel="stylesheet" type="text/css"
+            href="styles.css">
+        <link href="//fonts.googleapis.com/css?family=Open+Sans:400,600,700,800" rel="stylesheet" type="text/css">
+        <link rel="shortcut icon" href="favicon.ico">
+        
+        </head>
+        <body data-library="dado">
+        <div class="page">
+        <div class="header">
+          <a href="index.html"><div class="logo"></div></a>
+          <a href="index.html">Dart Documentation</a>
+         &rsaquo; <a href="dado.html">dado</a>        <div id="search-box">
+          <input type="search" name="q" id="q" autocomplete="off"
+              class="search-input" placeholder="Search API">
+        </div>
+        
+      </div>
+      <div class="drop-down" id="drop-down"></div>
+      
+        <div class="nav">
+        
+</div>
+<div class="content">
+<h2><strong>dado</strong> library</h2>
+<div class="doc"><p>Dado is a <a href="http://en.wikipedia.org/wiki/Dependency_injection">dependency injection</a> framework for <a href="http://dartlang.org">Dart</a>.</p>
+<p>Dado attempts to have minimal set of features and a syntax that takes
+advantage of Dart, which makes it different from many other popular DI
+frameworks.</p>
+<p>Dado tries to make DI more lightweight by letting you define modules as Dart
+classes and as declaratively as possible. Bindings can be define by simply
+declaring an abstract method:</p>
+<pre><code>class MyModule extends Module {
+  Foo get foo;
+}
+</code></pre>
+<h2>Example</h2>
+<pre><code>import 'package:dado/dado.dart';
+
+class MyModule extends Module {
+
+  // binding to an instance, similar to toInstance() in Guice
+  String serverAddress = "127.0.0.1";
+
+  // Getters define singletons, similar to in(Singleton.class) in Guice
+  Foo get foo;
+
+  // Methods define a factory binding, similar to bind().to() in Guice
+  Bar newBar();
+
+  // Methods that delegate to bindTo() bind a type to a specific
+  // implementation of that type
+  Baz get baz =&gt; bindTo(Baz).singleton;
+
+  // Bindings can be made to provider methods
+  Qux newQux() =&gt; bindTo(Qux)
+    .providedBy((Foo foo) =&gt; new Qux(foo, 'not injected')).newInstance();
+  }
+
+  class Bar {
+    // A default method is automatically injected with dependencies
+    Bar(Foo foo);
+  }
+
+  main() {
+    var injector = new Injector([MyModule]);
+    Bar bar = injector.getInstance(Bar);
+  }
+</code></pre></div>
+<div>
+<h3>Abstract Classes</h3>
+          <div class="type">
+          <h4>
+            <a href="dado/Module.html"><strong>Module</strong></a>
+          </h4>
+          </div>
+          
+</div>
+<div>
+<h3>Classes</h3>
+          <div class="type">
+          <h4>
+            <a href="dado/Binder.html"><strong>Binder</strong></a>
+          </h4>
+          </div>
+          
+          <div class="type">
+          <h4>
+            <a href="dado/Injector.html"><strong>Injector</strong></a>
+          </h4>
+          </div>
+          
+          <div class="type">
+          <h4>
+            <a href="dado/ProvidedBinder.html"><strong>ProvidedBinder</strong></a>
+          </h4>
+          </div>
+          
+</div>
+        </div>
+        <div class="clear"></div>
+        </div>
+        <div class="footer">
+          <div>This page was generated at 2013-07-02 17:14:02.507</div>
+        </div>
+        <script async src="client-live-nav.js"></script>
+        </body></html>
+        

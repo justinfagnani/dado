@@ -1,0 +1,128 @@
+        <!DOCTYPE html>
+        <html>
+        <head>
+                <meta charset="utf-8">
+        <title>Binder class / dado Library / Dart Documentation</title>
+        <link rel="stylesheet" type="text/css"
+            href="../styles.css">
+        <link href="//fonts.googleapis.com/css?family=Open+Sans:400,600,700,800" rel="stylesheet" type="text/css">
+        <link rel="shortcut icon" href="../favicon.ico">
+        
+        </head>
+        <body data-library="dado" data-type="Binder">
+        <div class="page">
+        <div class="header">
+          <a href="../index.html"><div class="logo"></div></a>
+          <a href="../index.html">Dart Documentation</a>
+         &rsaquo; <a href="../dado.html">dado</a> &rsaquo; <a href="../dado/Binder.html">Binder</a>        <div id="search-box">
+          <input type="search" name="q" id="q" autocomplete="off"
+              class="search-input" placeholder="Search API">
+        </div>
+        
+      </div>
+      <div class="drop-down" id="drop-down"></div>
+      
+        <div class="nav">
+        
+</div>
+<div class="content">
+        <h2><strong>Binder</strong>
+          class
+        </h2>
+        
+<button id="show-inherited" class="show-inherited">Hide inherited</button>
+<div class="doc">
+<p>Returned by <a class="crossref" href="../dado/Module.html#bindTo">Module.bindTo</a>, defines a binding from one type (the return
+type of the binding declaration) to another type (the argument to <code>bindTo</code>).</p>
+<pre class="source">
+class Binder extends _Binder {
+ Binder(injector, boundType, type) : super(injector, boundType, type);
+
+ ProvidedBinder providedBy(provider) =&gt;
+     new ProvidedBinder(_injector, _boundType, type, provider);
+}
+</pre>
+</div>
+<h3>Extends</h3>
+<p>
+<span class="type-box"><span class="icon-class"></span><a href="../dado/_Binder.html">_Binder</a></span>&nbsp;&gt;&nbsp;<span class="type-box"><span class="icon-class"></span><strong>Binder</strong></span></p>
+<div>
+<h3>Constructors</h3>
+<div class="method"><h4 id="Binder">
+<button class="show-code">Code</button>
+new <strong>Binder</strong>(injector, boundType, type) <a class="anchor-link" href="#Binder"
+              title="Permalink to Binder.Binder">#</a></h4>
+<div class="doc">
+<pre class="source">
+Binder(injector, boundType, type) : super(injector, boundType, type);
+</pre>
+</div>
+</div>
+</div>
+<div class="inherited">
+<h3>Properties</h3>
+<div class="field inherited"><h4 id="singleton">
+<button class="show-code">Code</button>
+final         <strong>singleton</strong> <a class="anchor-link"
+            href="#singleton"
+            title="Permalink to Binder.singleton">#</a>
+        </h4>
+        <div class="inherited-from">inherited from <a href="../dado/_Binder.html">_Binder</a> </div><div class="doc">
+<pre class="source">
+dynamic get singleton {
+ var mirror = reflectClass(type);
+ return _injector._getSingletonOf(_boundType, mirror);
+}
+</pre>
+</div>
+</div>
+<div class="field inherited"><h4 id="type">
+<button class="show-code">Code</button>
+final <a href="http://api.dartlang.org/dart_core/Type.html">Type</a>         <strong>type</strong> <a class="anchor-link"
+            href="#type"
+            title="Permalink to Binder.type">#</a>
+        </h4>
+        <div class="inherited-from">inherited from <a href="../dado/_Binder.html">_Binder</a> </div><div class="doc">
+<pre class="source">
+final Type type
+</pre>
+</div>
+</div>
+</div>
+<div>
+<h3>Methods</h3>
+<div class="method inherited"><h4 id="newInstance">
+<button class="show-code">Code</button>
+dynamic <strong>newInstance</strong>() <a class="anchor-link" href="#newInstance"
+              title="Permalink to Binder.newInstance">#</a></h4>
+<div class="inherited-from">inherited from <a href="../dado/_Binder.html">_Binder</a> </div><div class="doc">
+<pre class="source">
+dynamic newInstance() {
+ var mirror = reflectClass(type);
+ var name = mirror.qualifiedName;
+ return _injector._getInstanceOf(name, mirror, allowImplicit: true);
+}
+</pre>
+</div>
+</div>
+<div class="method"><h4 id="providedBy">
+<button class="show-code">Code</button>
+<a href="../dado/ProvidedBinder.html">ProvidedBinder</a> <strong>providedBy</strong>(provider) <a class="anchor-link" href="#providedBy"
+              title="Permalink to Binder.providedBy">#</a></h4>
+<div class="doc">
+<pre class="source">
+ProvidedBinder providedBy(provider) =&gt;
+   new ProvidedBinder(_injector, _boundType, type, provider);
+</pre>
+</div>
+</div>
+</div>
+        </div>
+        <div class="clear"></div>
+        </div>
+        <div class="footer">
+          <div>This page was generated at 2013-07-02 17:14:02.543</div>
+        </div>
+        <script async src="../client-live-nav.js"></script>
+        </body></html>
+        

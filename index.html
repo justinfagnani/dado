@@ -43,10 +43,23 @@ of Dart, which makes it different from many other popular DI frameworks.</p>
 classes and as declaratively as possible. Bindings can be define by simply
 declaring an abstract method:</p>
 
-<pre><code>class MyModule extends Module {
-  Foo get foo;
-}
-</code></pre>
+<div class="highlight"><pre><span class="kd">class</span> <span class="nc">MyModule</span> <span class="kd">extends</span> <span class="n">Module</span> <span class="p">{</span>
+  <span class="n">Foo</span> <span class="kd">get</span> <span class="n">foo</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+
+<p>Then you can create an injector and get an instance of Foo:</p>
+
+<div class="highlight"><pre><span class="kd">var</span> <span class="n">injector</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Injector</span><span class="p">([</span><span class="n">MyModule</span><span class="p">]);</span>
+<span class="n">injector</span><span class="p">.</span><span class="n">getInstanceOf</span><span class="p">(</span><span class="n">Foo</span><span class="p">);</span>
+</pre></div>
+
+<p>Or call an injected closure:</p>
+
+<div class="highlight"><pre><span class="n">injector</span><span class="p">.</span><span class="n">callInjected</span><span class="p">((</span><span class="n">Foo</span> <span class="n">foo</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">print</span><span class="p">(</span><span class="s2">"foo is </span><span class="si">$</span><span class="n">foo</span><span class="s2">"</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
 
 <p>See the tests for more examples.</p>
 
@@ -73,41 +86,57 @@ declaring an abstract method:</p>
 <strong>Toolability</strong> Dado should work well tools and operations like static find
  references, refactoring, minifiers, tree-shakers, etc.</li>
 </ol><h2>
-<a name="example" class="anchor" href="#example"><span class="octicon octicon-link"></span></a>Example</h2>
+<a name="documentation" class="anchor" href="#documentation"><span class="octicon octicon-link"></span></a>Documentation</h2>
 
-<pre><code>import 'package:dado/dado.dart';
+<p>See the <a href="http://dart-lang.github.io/dado/docs/dado.html">dartdoc documentation for Dado</a></p>
 
-class MyModule extends Module {
+<h2>
+<a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h2>
 
-  // binding to an instance, similar to bind().toInstance() in Guice
-  String serverAddress = "127.0.0.1";
+<p>Use <a href="http://pub.dartlang.org">Pub</a> and simply add the following to your <code>pubspec.yaml</code> file:</p>
 
-  // Getters define a singleton, similar to bind().to().in(Singleton.class)
-  // in Guice
-  Foo get foo;
-
-  // Methods define a factory binding, similar to bind().to() in Guice
-  Bar newBar();
-
-  // Methods that delegate to bindTo() bind a type to a specific
-  // implementation of that type
-  Baz get baz =&gt; bindTo(Baz).singleton;
-
-  // Bindings can be made to provider methods
-  Qux newQux() =&gt; bindTo(Qux)
-      .providedBy((Foo foo) =&gt; new Qux(foo, 'not injected')).newInstance();
-}
-
-class Bar {
-  // A default method is automatically injected with dependencies
-  Bar(Foo foo);
-}
-
-main() {
-  var injector = new Injector([MyModule]);
-  Bar bar = injector.getInstance(Bar);
-}
+<pre><code>dependencies:
+  dado: 0.5.1
 </code></pre>
+
+<p>You can find more details on the <a href="http://pub.dartlang.org/packages/dado">Dado page on Pub</a></p>
+
+<h2>
+<a name="binding-examples" class="anchor" href="#binding-examples"><span class="octicon octicon-link"></span></a>Binding Examples</h2>
+
+<div class="highlight"><pre><span class="k">import</span> <span class="s1">'package:dado/dado.dart'</span><span class="p">;</span>
+
+<span class="kd">class</span> <span class="nc">MyModule</span> <span class="kd">extends</span> <span class="n">Module</span> <span class="p">{</span>
+
+  <span class="c1">// binding to an instance, similar to bind().toInstance() in Guice</span>
+  <span class="kt">String</span> <span class="n">serverAddress</span> <span class="o">=</span> <span class="s2">"127.0.0.1"</span><span class="p">;</span>
+
+  <span class="c1">// Getters define a singleton, similar to bind().to().in(Singleton.class)</span>
+  <span class="c1">// in Guice</span>
+  <span class="n">Foo</span> <span class="kd">get</span> <span class="n">foo</span><span class="p">;</span>
+
+  <span class="c1">// Methods define a factory binding, similar to bind().to() in Guice</span>
+  <span class="n">Bar</span> <span class="n">newBar</span><span class="p">();</span>
+
+  <span class="c1">// Methods that delegate to bindTo() bind a type to a specific</span>
+  <span class="c1">// implementation of that type</span>
+  <span class="n">Baz</span> <span class="kd">get</span> <span class="n">baz</span> <span class="o">=&gt;</span> <span class="n">bindTo</span><span class="p">(</span><span class="n">Baz</span><span class="p">).</span><span class="n">singleton</span><span class="p">;</span>
+
+  <span class="c1">// Bindings can be made to provider methods</span>
+  <span class="n">Qux</span> <span class="n">newQux</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="n">bindTo</span><span class="p">(</span><span class="n">Qux</span><span class="p">)</span>
+      <span class="p">.</span><span class="n">providedBy</span><span class="p">((</span><span class="n">Foo</span> <span class="n">foo</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="k">new</span> <span class="n">Qux</span><span class="p">(</span><span class="n">foo</span><span class="p">,</span> <span class="s1">'not injected'</span><span class="p">)).</span><span class="n">newInstance</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="kd">class</span> <span class="nc">Bar</span> <span class="p">{</span>
+  <span class="c1">// A default method is automatically injected with dependencies</span>
+  <span class="n">Bar</span><span class="p">(</span><span class="n">Foo</span> <span class="n">foo</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="n">injector</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Injector</span><span class="p">([</span><span class="n">MyModule</span><span class="p">]);</span>
+  <span class="n">Bar</span> <span class="n">bar</span> <span class="o">=</span> <span class="n">injector</span><span class="p">.</span><span class="n">getInstance</span><span class="p">(</span><span class="n">Bar</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 
 <h2>
 <a name="status" class="anchor" href="#status"><span class="octicon octicon-link"></span></a>Status</h2>
@@ -121,8 +150,9 @@ production yet.</p>
 <ul>
 <li>Injectable classes must either have a default constructor or a single
 constructor.</li>
-<li>There can only be one binding per type, because Dado doesn't use annotations
-yet.</li>
+<li>There can only be one binding per type, because parameter annotations cannot
+be access via mirrors yet. When issue 11418 is fixed, Dado will respect
+annotations of parameters.</li>
 <li>Functions cannot be injected yet.</li>
 <li>Named parameters are not supported.</li>
 <li>No custom scope support. The only scopes are unscoped and singleton.
@@ -132,13 +162,17 @@ Hierarchical modules might be enough.</li>
 </ul><h2>
 <a name="star-fishing" class="anchor" href="#star-fishing"><span class="octicon octicon-link"></span></a>Star Fishing</h2>
 
+<p>These are open issues that are blocking certain features od Dado:</p>
+
 <ul>
 <li>
 <a href="http://dartbug.com/5897">http://dartbug.com/5897</a> Look up classes by name</li>
 <li>
 <a href="http://dartbug.com/9395">http://dartbug.com/9395</a> Get qualified name from Type</li>
 <li>
-<a href="http://dartbug.com/8493">http://dartbug.com/8493</a> Access annotations via mirrors</li>
+<a href="http://dartbug.com/6614">http://dartbug.com/6614</a> reflective access to metadata</li>
+<li>
+<a href="http://dartbug.com/11418">http://dartbug.com/11418</a> ParameterMirror.metadata throws Exception</li>
 </ul>
         </section>
 

@@ -1,42 +1,154 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Dado by dart-lang</title>
-
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
+    <title>Dado by dart-lang</title>
   </head>
+
   <body>
-    <div class="wrapper">
-      <header>
-        <h1>Dado</h1>
-        <p>A Dependency Injection framework for Dart</p>
+    <div id="container">
+      <div class="inner">
 
-        <p class="view"><a href="https://github.com/dart-lang/dado">View the Project on GitHub <small>dart-lang/dado</small></a></p>
+        <header>
+          <h1>Dado</h1>
+          <h2>A Dependency Injection framework for Dart</h2>
+        </header>
 
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/dart-lang/dado/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/dart-lang/dado/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/dart-lang/dado" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
 
-        <ul>
-          <li><a href="https://github.com/dart-lang/dado/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/dart-lang/dado/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/dart-lang/dado">View On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h3>
-<a name="dado-a-dependency-injection-framework-for-dart" class="anchor" href="#dado-a-dependency-injection-framework-for-dart"><span class="octicon octicon-link"></span></a>Dado: A Dependency Injection framework for Dart</h3>
-      </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/dart-lang">dart-lang</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
+        <hr>
+
+        <section id="main_content">
+          <h1>
+<a name="dado" class="anchor" href="#dado"><span class="octicon octicon-link"></span></a>Dado</h1>
+
+<p>Dado is a <a href="http://en.wikipedia.org/wiki/Dependency_injection" title="Dependency Injection">dependency injection</a> framework for <a href="http://dartlang.org">Dart</a>.</p>
+
+<p>Dado attempts to have minimal set of features and a syntax that takes advantage
+of Dart, which makes it different from many other popular DI frameworks.</p>
+
+<p>Dado tries to make DI more lightweight by letting you define modules as Dart
+classes and as declaratively as possible. Bindings can be define by simply
+declaring an abstract method:</p>
+
+<pre><code>class MyModule extends Module {
+  Foo get foo;
+}
+</code></pre>
+
+<p>See the tests for more examples.</p>
+
+<h2>
+<a name="principles" class="anchor" href="#principles"><span class="octicon octicon-link"></span></a>Principles</h2>
+
+<ol>
+<li>
+<strong>Idiomatic:</strong> Dart is a different language than JavaScript or Java and has
+ different capabilities and styles. Part of Dado's approach is driven by a
+ desire to figure out exactly what a Dart DI framework should look like. We
+ try to use language features to drive configuration whenever possible.</li>
+<li>
+<strong>Dev-Time Productivity, Deploy-Time Optimization</strong> Dado uses Dart mirrors
+ to implement injectors dynamically, but we are working on a code generator
+ that will allow tools like dart2js to produce smaller output.</li>
+<li>
+<strong>Play Well with the Web:</strong> Dart is at home on the web and Dado should be
+ too, working well with the DOM, and new technologies like custom elements
+ and MDV.</li>
+<li>
+<strong>Simplicity</strong> Dado should be as simple as possible, but no simpler.</li>
+<li>
+<strong>Toolability</strong> Dado should work well tools and operations like static find
+ references, refactoring, minifiers, tree-shakers, etc.</li>
+</ol><h2>
+<a name="example" class="anchor" href="#example"><span class="octicon octicon-link"></span></a>Example</h2>
+
+<pre><code>import 'package:dado/dado.dart';
+
+class MyModule extends Module {
+
+  // binding to an instance, similar to bind().toInstance() in Guice
+  String serverAddress = "127.0.0.1";
+
+  // Getters define a singleton, similar to bind().to().in(Singleton.class)
+  // in Guice
+  Foo get foo;
+
+  // Methods define a factory binding, similar to bind().to() in Guice
+  Bar newBar();
+
+  // Methods that delegate to bindTo() bind a type to a specific
+  // implementation of that type
+  Baz get baz =&gt; bindTo(Baz).singleton;
+
+  // Bindings can be made to provider methods
+  Qux newQux() =&gt; bindTo(Qux)
+      .providedBy((Foo foo) =&gt; new Qux(foo, 'not injected')).newInstance();
+}
+
+class Bar {
+  // A default method is automatically injected with dependencies
+  Bar(Foo foo);
+}
+
+main() {
+  var injector = new Injector([MyModule]);
+  Bar bar = injector.getInstance(Bar);
+}
+</code></pre>
+
+<h2>
+<a name="status" class="anchor" href="#status"><span class="octicon octicon-link"></span></a>Status</h2>
+
+<p>Dado is under active development. It has a few tests, but has not been used in
+production yet.</p>
+
+<h2>
+<a name="known-issues-and-limitations" class="anchor" href="#known-issues-and-limitations"><span class="octicon octicon-link"></span></a>Known Issues and Limitations</h2>
+
+<ul>
+<li>Injectable classes must either have a default constructor or a single
+constructor.</li>
+<li>There can only be one binding per type, because Dado doesn't use annotations
+yet.</li>
+<li>Functions cannot be injected yet.</li>
+<li>Named parameters are not supported.</li>
+<li>No custom scope support. The only scopes are unscoped and singleton.
+Hierarchical modules might be enough.</li>
+<li>Modules must extend <code>Module</code>. When mixins are better supported in Dart,
+<code>Module</code> can be mixed in instead.</li>
+</ul><h2>
+<a name="star-fishing" class="anchor" href="#star-fishing"><span class="octicon octicon-link"></span></a>Star Fishing</h2>
+
+<ul>
+<li>
+<a href="http://dartbug.com/5897">http://dartbug.com/5897</a> Look up classes by name</li>
+<li>
+<a href="http://dartbug.com/9395">http://dartbug.com/9395</a> Get qualified name from Type</li>
+<li>
+<a href="http://dartbug.com/8493">http://dartbug.com/8493</a> Access annotations via mirrors</li>
+</ul>
+        </section>
+
+        <footer>
+          Dado is maintained by <a href="https://github.com/dart-lang">dart-lang</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
     </div>
-    <script src="javascripts/scale.fix.js"></script>
-    
   </body>
 </html>

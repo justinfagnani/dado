@@ -5,7 +5,19 @@
 library dado.mirror_utils;
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:mirrors';
+
+Map<Type, ClassMirror> _classMirrorCache = new HashMap<Type, ClassMirror>();
+
+/**
+ * Caches the result of [reflectClass] to work around performance issues.
+ */
+// not using this just yet, but might soon
+ClassMirror reflectClassCached(Type type) {
+  _classMirrorCache.putIfAbsent(type, () => reflectClass(type));
+  return _classMirrorCache[type];
+}
 
 /**
  * Walks the class hierarchy to search for a superclass or interface named
@@ -13,7 +25,6 @@ import 'dart:mirrors';
  * names, otherwise only qualified names are matched.
  */
 bool implements(ClassMirror m, Symbol name, {bool useSimple: false}) {
-//  print(m.qualifiedName);
   if (m == null) return false;
   if (m.qualifiedName == name || (useSimple && m.simpleName == name)) {
     return true;

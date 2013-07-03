@@ -65,6 +65,34 @@ typedef Object _Provider(Injector injector);
 
 Symbol _typeName(Type type) => reflectClass(type).qualifiedName;
 
+Key _makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);
+
+/**
+ * Keys are used to resolve instances in an [Injector], they are used to
+ * register bindings and request an object at the injection point.
+ *
+ * Keys consist of a [Symbol] representing the type name and an optional
+ * annotation. If you need to create a Key from a [Type] literal, use [forType].
+ */
+class Key {
+  final Symbol name;
+  final annotation;
+
+  Key(this.name, {annotatedWith}) : annotation = annotatedWith {
+    if (name == null) throw new ArgumentError("name must not be null");
+  }
+
+  factory Key.forType(Type type, {annotatedWith}) =>
+      new Key(_typeName(type), annotatedWith: annotatedWith);
+
+  bool operator ==(o) => o is Key && o.name == name
+      && o.annotation == annotation;
+
+  int get hashCode => name.hashCode * 37 + annotation.hashCode;
+
+  String toString() => 'Key(name: $name, annotation: $annotation)';
+}
+
 /**
  * An Injector constructs objects based on it's configuration. The Injector
  * tracks dependencies between objects and uses the bindings defined in its
@@ -94,9 +122,9 @@ class Injector {
   /// The name of this injector, if one was provided.
   final String name;
 
-  final List<Symbol> _newInstances;
-  final Map<Symbol, _Provider> _providers = new Map<Symbol, _Provider>();
-  final Map<Symbol, Object> _singletons = new Map<Symbol, Object>();
+  final List<Key> _newInstances;
+  final Map<Key, _Provider> _providers = new Map<Key, _Provider>();
+  final Map<Key, Object> _singletons = new Map<Key, Object>();
 
   /**
    * Constructs a new Injector using [modules] to provide bindings. If [parent]
@@ -110,7 +138,8 @@ class Injector {
     String this.name})
       : _newInstances = (newInstances == null)
           ? []
-          : newInstances.map(_typeName).toList(growable: false) {
+          : newInstances.map(_makeKey).toList(growable: false)
+  {
     if (parent == null && newInstances != null) {
       throw new ArgumentError('newInstances can only be specified for child'
           'injectors.');
@@ -128,10 +157,13 @@ class Injector {
       new Injector(modules, parent: this);
 
   /**
-   * Returns an instance of [type].
+   * Returns an instance of [type]. If [annotatedWith] is provided, returns an
+   * instance that was bound with the annotation.
    */
-  Object getInstanceOf(Type type) =>
-      _getInstanceOf(_typeName(type), reflectClass(type));
+  Object getInstanceOf(Type type, {annotatedWith}) {
+    var key = new Key(_typeName(type), annotatedWith: annotatedWith);
+    return _getInstanceOf(key, reflectClass(type));
+  }
 
   /**
    * Execute the function [f], injecting any arguments.
@@ -139,67 +171,98 @@ class Injector {
   dynamic callInjected(Function f) {
     var mirror = reflect(f);
     assert(mirror is ClosureMirror);
-    var pargs = mirror.function.parameters.map((ParameterMirror p) =>
-        _getInstanceOf(p.type.qualifiedName, p.type)).toList();
-    return Function.apply(f, pargs);
+    var parameters = _resolveParameters(mirror.function.parameters);
+    return Function.apply(f, parameters);
   }
 
-  _Provider _getProvider(Symbol name) =>
-      _providers.containsKey(name)
-          ? _providers[name]
+  _Provider _getProvider(Key key) =>
+      _providers.containsKey(key)
+          ? _providers[key]
           : (parent != null)
-              ? parent._getProvider(name)
+              ? parent._getProvider(key)
               : null;
 
-  Object _getInstanceOf(Symbol name, ClassMirror mirror,
+  Object _getInstanceOf(Key key, ClassMirror mirror,
       {bool allowImplicit: false}) {
-    if (name == _injectorClassName) return this;
-    _Provider provider = _getProvider(name);
+    if (key.name == _injectorClassName) return this;
+    _Provider provider = _getProvider(key);
     if (provider == null) {
       if (allowImplicit == true) {
         return _newFromTypeMirror(mirror);
       } else {
-        throw new ArgumentError('Type: $name has not been bound.');
+        throw new ArgumentError('Key: $key has not been bound.');
       }
     }
 
     return provider(this);
   }
 
-  Object _getSingletonOf(Symbol name, ClassMirror mirror) {
-    if (parent == null || _newInstances.contains(name) ||
-        _providers.containsKey(name)) {
-      if (!_singletons.containsKey(name)) {
-        _singletons[name] = _newFromTypeMirror(mirror);
+  Object _getSingletonOf(Key key, ClassMirror mirror) {
+    if (parent == null || _newInstances.contains(key) ||
+        _providers.containsKey(key)) {
+      if (!_singletons.containsKey(key)) {
+        _singletons[key] = _newFromTypeMirror(mirror);
       }
-      return _singletons[name];
+      return _singletons[key];
     } else {
-      return parent._getSingletonOf(name, mirror);
+      return parent._getSingletonOf(key, mirror);
     }
   }
 
+  Object _getAnnotation(DeclarationMirror m) {
+    // There's some bug with requesting metadata from certain variable mirrors
+    // that causes a NoSuchMethodError because the mirror system is trying to
+    // call 'resolve' on null. See dartbug.com/11418
+    List<InstanceMirror> metadata;
+    try {
+      metadata = m.metadata;
+    } on NoSuchMethodError catch (e) {
+      return null;
+    }
+    if (metadata.isNotEmpty) {
+      // TODO(justin): what do we do when a declaration has multiple
+      // annotations? What does Guice do? We should probably only allow one
+      // binding annotation per declaration, which means we need a way to
+      // identify binding annotations.
+      return metadata.first.reflectee;
+    }
+    return null;
+  }
+
+  List<Object> _resolveParameters(List<ParameterMirror> parameters) =>
+      parameters.map((ParameterMirror p) {
+        var name = p.type.qualifiedName;
+        var annotation = _getAnnotation(p);
+        var key = new Key(name, annotatedWith: annotation);
+        return _getInstanceOf(key, p.type);
+      }).toList();
+
   void _registerBindings(Type moduleType){
     var typeMirror = reflectClass(moduleType);
-    var moduleMirror = typeMirror.newInstance(new Symbol(''), [], null);
-    var module = moduleMirror.reflectee;
+    var moduleMirror = typeMirror.newInstance(const Symbol(''), [], null);
+    Module module = moduleMirror.reflectee;
 
     typeMirror.members.values.forEach((member) {
       if (member is VariableMirror) {
         // Variables define "to instance" bindings
         var instance = moduleMirror.getField(member.simpleName).reflectee;
-        _providers[member.type.qualifiedName] = (injector) => instance;
+        var name = member.type.qualifiedName;
+        var annotation = _getAnnotation(member);
+        var key = new Key(name, annotatedWith: annotation);
+        _providers[key] = (injector) => instance;
       } else if (member is MethodMirror) {
+        var name = member.returnType.qualifiedName;
+        var annotation = _getAnnotation(member);
+        Key key = new Key(name, annotatedWith: annotation);
         if (member.isAbstract) {
           if (member.isGetter) {
             // Abstract getters define singleton bindings
-            _providers[member.returnType.qualifiedName] = (injector) {
-              var returnType = member.returnType;
-              return injector
-                  ._getSingletonOf(returnType.qualifiedName, returnType);
+            _providers[key] = (injector) {
+              return injector._getSingletonOf(key, member.returnType);
             };
           } else {
             // Abstract methods define unscoped bindings
-            _providers[member.returnType.qualifiedName] =
+            _providers[key] =
                 (injector) => injector._newFromTypeMirror(member.returnType);
           }
         } else {
@@ -215,9 +278,9 @@ class Injector {
           // a worthwhile tradeoff for having declarative bindings.
           if (member.isGetter) {
             // getters should define singleton bindings
-            _providers[member.returnType.qualifiedName] = (injector) {
+            _providers[key] = (injector) {
               module._currentInjector = injector;
-              module._currentTypeName = member.returnType.qualifiedName;
+              module._currentKey = key;
               return moduleMirror.getField(member.simpleName).reflectee;
             };
           } else {
@@ -225,13 +288,12 @@ class Injector {
             // TODO(justin): allow parameters in module method? This would make
             // defining provided bindings much shorter when they rebind to a
             // new type.
-            var pargs = member.parameters.map((ParameterMirror p) =>
-                _getInstanceOf(p.type.qualifiedName, p.type)).toList();
-            _providers[member.returnType.qualifiedName] = (injector) {
+            var parameters = _resolveParameters(member.parameters);
+            _providers[key] = (injector) {
               module._currentInjector = injector;
-              module._currentTypeName = member.returnType.qualifiedName;
+              module._currentKey = key;
               return moduleMirror
-                  .invoke(member.simpleName, pargs, null).reflectee;
+                  .invoke(member.simpleName, parameters, null).reflectee;
             };
           }
         }
@@ -253,9 +315,8 @@ class Injector {
             "constructor or a single constructor");
       }
       // resolve dependencies
-      var pargs = ctor.parameters.map((p) =>
-          _getInstanceOf(p.type.qualifiedName, p.type)).toList();
-      return m.newInstance(ctor.constructorName, pargs, null).reflectee;
+      var parameters = _resolveParameters(ctor.parameters);
+      return m.newInstance(ctor.constructorName, parameters, null).reflectee;
   }
 
   String toString() => 'Injector: $name';
@@ -263,22 +324,17 @@ class Injector {
 
 class _Binder {
   final Injector _injector;
-  final Symbol _boundType;
-  final Type type;
+  final Key _boundKey;
+  final Key _boundToKey;
+  final ClassMirror _boundToMirror;
 
-  _Binder(this._injector, this._boundType, this.type);
+  _Binder(this._injector, this._boundKey, this._boundToKey,
+      this._boundToMirror);
 
-  dynamic get singleton {
-    var mirror = reflectClass(type);
-    return _injector._getSingletonOf(_boundType, mirror);
-  }
+  Object get singleton => _injector._getSingletonOf(_boundKey, _boundToMirror);
 
-  dynamic newInstance() {
-    var mirror = reflectClass(type);
-    var name = mirror.qualifiedName;
-    return _injector._getInstanceOf(name, mirror, allowImplicit: true);
-  }
-
+  Object newInstance() => _injector._getInstanceOf(_boundToKey, _boundToMirror,
+      allowImplicit: true);
 }
 
 /**
@@ -286,27 +342,29 @@ class _Binder {
  * type of the binding declaration) to another type (the argument to [bindTo]).
  */
 class Binder extends _Binder {
-  Binder(injector, boundType, type) : super(injector, boundType, type);
+  Binder._(Injector injector, Key boundKey,
+      Key boundToKey, ClassMirror boundToMirror)
+      : super(injector, boundKey, boundToKey, boundToMirror);
 
-  ProvidedBinder providedBy(provider) =>
-      new ProvidedBinder(_injector, _boundType, type, provider);
+  ProvidedBinder providedBy(provider) => new ProvidedBinder._(_injector,
+      _boundKey, _boundToKey, _boundToMirror, provider);
 }
 
 class ProvidedBinder extends _Binder {
   Function provider;
 
-  ProvidedBinder(injector, boundType, type, this.provider)
-      : super(injector, boundType, type);
+  ProvidedBinder._(Injector injector, Key boundKey,
+      Key boundToKey, ClassMirror boundToMirror, this.provider)
+      : super(injector, boundKey, boundToKey, boundToMirror);
 
-  dynamic get singleton {
-    Symbol name = _typeName(type);
-    if (!_injector._singletons.containsKey(name)) {
-      _injector._singletons[name] = _injector.callInjected(provider);
+  Object get singleton {
+    if (!_injector._singletons.containsKey(_boundKey)) {
+      _injector._singletons[_boundKey] = _injector.callInjected(provider);
     }
-    return _injector._singletons[name];
+    return _injector._singletons[_boundKey];
   }
 
-  dynamic newInstance() => _injector.callInjected(provider);
+  Object newInstance() => _injector.callInjected(provider);
 
 }
 
@@ -331,8 +389,14 @@ class ProvidedBinder extends _Binder {
  */
 abstract class Module {
   Injector _currentInjector;
-  Symbol _currentTypeName;
+  Key _currentKey;
 
-  Binder bindTo(Type type) =>
-      new Binder(_currentInjector, _currentTypeName, type);
+  Binder bindTo(Type type, {annotatedWith}) {
+    assert(_currentInjector != null);
+    assert(_currentKey != null);
+    var boundToKey = new Key(_typeName(type), annotatedWith: annotatedWith);
+    var boundToMirror = reflectClass(type);
+    return new Binder._(_currentInjector, _currentKey, boundToKey,
+        boundToMirror);
+  }
 }

@@ -89,8 +89,9 @@ Known Issues and Limitations
 
  * Injectable classes must either have a default constructor or a single
    constructor.
- * There can only be one binding per type, because Dado doesn't use annotations
-   yet.
+ * There can only be one binding per type, because parameter annotations cannot
+   be access via mirrors yet. When issue 11418 is fixed, Dado will respect
+   annotations of parameters.
  * Functions cannot be injected yet.
  * Named parameters are not supported.
  * No custom scope support. The only scopes are unscoped and singleton.
@@ -101,6 +102,9 @@ Known Issues and Limitations
 Star Fishing
 ------------
 
+These are open issues that are blocking certain features od Dado:
+
  * http://dartbug.com/5897 Look up classes by name
  * http://dartbug.com/9395 Get qualified name from Type
- * http://dartbug.com/8493 Access annotations via mirrors
+ * http://dartbug.com/6614 reflective access to metadata
+ * http://dartbug.com/11418 ParameterMirror.metadata throws Exception

@@ -56,13 +56,22 @@ class Provided {
   Provided(int this.i, Foo foo);
 }
 
+const A = 'a';
+const B = 'b';
+
 abstract class Module1 extends Module {
 
   // an instance of a type, similar to bind().toInstance() in Guice
   String string = "a";
 
+  // an annotated instance which can be requested independently of an
+  // unannotated binding or a binding with a different annotation
+  @B String another_string = "b";
+
   // a singleton, similar to bind().to().in(Singleton.class) in Guice
   Foo get foo;
+
+  @B Foo get fooB;
 
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
@@ -92,7 +101,7 @@ abstract class Module3 extends Module {
 
   Qux get qux;
 
-  Bar newBar() =>bindTo(SubBar).newInstance();
+  Bar newBar() => bindTo(SubBar).newInstance();
 }
 
 main() {
@@ -106,6 +115,10 @@ main() {
 
     test('should return the value of an instance field', () {
       expect(injector.getInstanceOf(String), 'a');
+    });
+
+    test('should return the value of an annotated instance field', () {
+      expect(injector.getInstanceOf(String, annotatedWith: B), 'b');
     });
 
     test('should return a singleton of the return type of a getter', () {
@@ -162,6 +175,15 @@ main() {
       expect(o.injector, same(injector));
     });
 
+    test('should inject and call closures', () {
+      bool called = false;
+      injector.callInjected((Foo foo) {
+        expect(foo, new isInstanceOf<Foo>());
+        called = true;
+      });
+      expect(called, true);
+    });
+
   });
 
   group('child injector', () {
@@ -170,8 +192,10 @@ main() {
 
     setUp((){
       injector = new Injector([Module1], name: 'parent');
-      childInjector = new Injector([Module3], newInstances: [Baz],
-          parent: injector, name: 'child');
+      childInjector = new Injector([Module3],
+          newInstances: [Baz, new Key.forType(Foo, annotatedWith: B)],
+          parent: injector,
+          name: 'child');
     });
 
     test("should get a singleton from it's parent", () {
@@ -202,8 +226,11 @@ main() {
       var baz1 = injector.getInstanceOf(Baz);
       var baz2 = childInjector.getInstanceOf(Baz);
       expect(baz1, isNot(same(baz2)));
-    });
 
+      var fooB1 = injector.getInstanceOf(Foo, annotatedWith: B);
+      var fooB2 = childInjector.getInstanceOf(Foo, annotatedWith: B);
+      expect(fooB1, isNot(same(fooB2)));
+    });
 
     test("should inject itself, not it's parent", () {
       injector.callInjected((Injector i) {

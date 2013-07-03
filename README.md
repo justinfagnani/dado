@@ -36,6 +36,11 @@ Principles
   5. __Toolability__ Dado should work well tools and operations like static find
      references, refactoring, minifiers, tree-shakers, etc.
 
+Documentation
+-------------
+
+Dartdoc documentation for Dado can be found here:
+http://dart-lang.github.io/dado/docs/dado.html
 
 Example
 -------

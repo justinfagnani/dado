@@ -10,9 +10,26 @@ Dado tries to make DI more lightweight by letting you define modules as Dart
 classes and as declaratively as possible. Bindings can be define by simply
 declaring an abstract method:
 
-    class MyModule extends Module {
-      Foo get foo;
-    }
+```dart
+class MyModule extends Module {
+  Foo get foo;
+}
+```
+
+Then you can create an injector and get an instance of Foo:
+
+```dart
+var injector = new Injector([MyModule]);
+injector.getInstanceOf(Foo);
+```
+
+Or call an injected closure:
+
+```dart
+injector.callInjected((Foo foo) {
+  print("foo is $foo");
+});
+```
 
 See the tests for more examples.
 
@@ -39,44 +56,62 @@ Principles
 Documentation
 -------------
 
-Dartdoc documentation for Dado can be found here:
-http://dart-lang.github.io/dado/docs/dado.html
+See the [dartdoc documentation for Dado][doc]
 
-Example
--------
+[doc]: http://dart-lang.github.io/dado/docs/dado.html
 
-    import 'package:dado/dado.dart';
+Installation
+------------
 
-    class MyModule extends Module {
+Use [Pub][pub] and simply add the following to your `pubspec.yaml` file:
 
-	  // binding to an instance, similar to bind().toInstance() in Guice
-	  String serverAddress = "127.0.0.1";
+```
+dependencies:
+  dado: 0.5.1
+```
 
-	  // Getters define a singleton, similar to bind().to().in(Singleton.class)
-	  // in Guice
-	  Foo get foo;
+You can find more details on the [Dado page on Pub][dado_pub]
 
-	  // Methods define a factory binding, similar to bind().to() in Guice
-	  Bar newBar();
+[pub]: http://pub.dartlang.org
+[dado_pub]: http://pub.dartlang.org/packages/dado
 
-	  // Methods that delegate to bindTo() bind a type to a specific
-      // implementation of that type
-	  Baz get baz => bindTo(Baz).singleton;
+Binding Examples
+----------------
 
-      // Bindings can be made to provider methods
-	  Qux newQux() => bindTo(Qux)
-	      .providedBy((Foo foo) => new Qux(foo, 'not injected')).newInstance();
-	}
+```dart
+import 'package:dado/dado.dart';
 
-	class Bar {
-      // A default method is automatically injected with dependencies
-	  Bar(Foo foo);
-	}
+class MyModule extends Module {
 
-    main() {
-      var injector = new Injector([MyModule]);
-      Bar bar = injector.getInstance(Bar);
-    }
+  // binding to an instance, similar to bind().toInstance() in Guice
+  String serverAddress = "127.0.0.1";
+
+  // Getters define a singleton, similar to bind().to().in(Singleton.class)
+  // in Guice
+  Foo get foo;
+
+  // Methods define a factory binding, similar to bind().to() in Guice
+  Bar newBar();
+
+  // Methods that delegate to bindTo() bind a type to a specific
+  // implementation of that type
+  Baz get baz => bindTo(Baz).singleton;
+
+  // Bindings can be made to provider methods
+  Qux newQux() => bindTo(Qux)
+      .providedBy((Foo foo) => new Qux(foo, 'not injected')).newInstance();
+}
+
+class Bar {
+  // A default method is automatically injected with dependencies
+  Bar(Foo foo);
+}
+
+main() {
+  var injector = new Injector([MyModule]);
+  Bar bar = injector.getInstance(Bar);
+}
+```
 
 Status
 ------

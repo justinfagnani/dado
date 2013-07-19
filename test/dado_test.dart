@@ -56,9 +56,6 @@ class Provided {
   Provided(int this.i, Foo foo);
 }
 
-const A = 'a';
-const B = 'b';
-
 abstract class Module1 extends Module {
 
   // an instance of a type, similar to bind().toInstance() in Guice
@@ -66,12 +63,12 @@ abstract class Module1 extends Module {
 
   // an annotated instance which can be requested independently of an
   // unannotated binding or a binding with a different annotation
-  @B String another_string = "b";
+  @Named('b') String another_string = "b";
 
   // a singleton, similar to bind().to().in(Singleton.class) in Guice
   Foo get foo;
 
-  @B Foo get fooB;
+  @Named('b') Foo get fooB;
 
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
@@ -118,7 +115,7 @@ main() {
     });
 
     test('should return the value of an annotated instance field', () {
-      expect(injector.getInstanceOf(String, annotatedWith: B), 'b');
+      expect(injector.getInstanceOf(String, annotatedWith: const Named('b')), 'b');
     });
 
     test('should return a singleton of the return type of a getter', () {
@@ -193,7 +190,7 @@ main() {
     setUp((){
       injector = new Injector([Module1], name: 'parent');
       childInjector = new Injector([Module3],
-          newInstances: [Baz, new Key.forType(Foo, annotatedWith: B)],
+          newInstances: [Baz, new Key.forType(Foo, annotatedWith: const Named('b'))],
           parent: injector,
           name: 'child');
     });
@@ -227,8 +224,8 @@ main() {
       var baz2 = childInjector.getInstanceOf(Baz);
       expect(baz1, isNot(same(baz2)));
 
-      var fooB1 = injector.getInstanceOf(Foo, annotatedWith: B);
-      var fooB2 = childInjector.getInstanceOf(Foo, annotatedWith: B);
+      var fooB1 = injector.getInstanceOf(Foo, annotatedWith: const Named('b'));
+      var fooB2 = childInjector.getInstanceOf(Foo, annotatedWith: const Named('b'));
       expect(fooB1, isNot(same(fooB2)));
     });
 

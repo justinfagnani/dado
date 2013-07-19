@@ -59,6 +59,7 @@ library dado;
 
 import 'dart:async';
 import 'dart:mirrors';
+import 'package:inject/inject.dart';
 import 'src/mirror_utils.dart';
 
 typedef Object _Provider(Injector injector);
@@ -66,6 +67,10 @@ typedef Object _Provider(Injector injector);
 Symbol _typeName(Type type) => reflectClass(type).qualifiedName;
 
 Key _makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);
+
+class Named extends BindingAnnotation {
+  const Named (String value) : super (value);
+}
 
 /**
  * Keys are used to resolve instances in an [Injector], they are used to
@@ -220,11 +225,15 @@ class Injector {
       return null;
     }
     if (metadata.isNotEmpty) {
-      // TODO(justin): what do we do when a declaration has multiple
-      // annotations? What does Guice do? We should probably only allow one
-      // binding annotation per declaration, which means we need a way to
-      // identify binding annotations.
-      return metadata.first.reflectee;
+      Iterable<InstanceMirror> bindingAnnotations = 
+        metadata.where((annotation) => annotation.reflectee is BindingAnnotation);
+      
+      if (bindingAnnotations.isEmpty)
+        return null;
+      else if (bindingAnnotations.length == 1)
+        return bindingAnnotations.first.reflectee;
+      else
+        throw new ArgumentError('Binding has more than one BindingAnnotation');
     }
     return null;
   }

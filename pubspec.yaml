@@ -1,0 +1,10 @@
+name: dado
+version: 0.5.1
+author: Dart Authors <misc@dartlang.org>
+description: An experimental dependency injection container for Dart
+homepage: http://dart-lang.github.io/dado/
+documentation: http://dart-lang.github.io/dado/docs/dado.html
+dependencies:
+  logging: any
+dev_dependencies:
+  unittest: any

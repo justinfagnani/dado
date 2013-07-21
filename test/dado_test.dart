@@ -12,10 +12,6 @@ import 'package:unittest/unittest.dart';
 class Foo {
   String name;
   
-  @inject
-  NeedsInjector b;
-  
-  @inject
   Foo(String this.name);
   
   String toString() => "Foo { name: $name}";
@@ -25,7 +21,6 @@ class Foo {
 class Bar {
   Foo foo;
   
-  @inject
   Bar(Foo this.foo);
   
   String toString() => "Bar {foo: $foo}";
@@ -33,7 +28,6 @@ class Bar {
 
 // subclass of dependency for binding
 class SubBar extends Bar {
-  @inject
   SubBar(Foo foo) : super(foo);
 }
 
@@ -41,12 +35,10 @@ class SubBar extends Bar {
 class Baz {
   Bar bar;
 
-  @inject
   Baz(Bar this.bar);
 }
 
 class SubBaz extends Baz {
-  @inject
   SubBaz(Bar bar) : super(bar);
 }
 
@@ -55,7 +47,6 @@ class Qux {
 
 // object with a cyclic, unscoped dependency
 class Cycle {
-  @inject
   Cycle(Cycle c);
 }
 
@@ -63,7 +54,6 @@ class Cycle {
 class NeedsInjector {
   Injector injector;
   
-  @inject
   NeedsInjector(Injector this.injector);
 }
 

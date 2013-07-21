@@ -126,7 +126,7 @@ class Injector {
   final List<Key> _newInstances;
   final Map<Key, _Provider> _providers = new Map<Key, _Provider>();
   final Map<Key, Object> _singletons = new Map<Key, Object>();
-
+  
   /**
    * Constructs a new Injector using [modules] to provide bindings. If [parent]
    * is specificed, the injector is a child injector that inherits bindings
@@ -301,39 +301,29 @@ class Injector {
       }
     });
   }
-  
-  InstanceMirror _resolveFieldInjectionPoints (InstanceMirror im) {
-    im.type.variables.values.forEach((v) {
-      if (v.metadata.any((m) => m.reflectee == inject)) {
-        if (v.isFinal)
-          throw new ArgumentError("${v.qualifiedName} is a final variable and cannot be injected");
-        
-        if (v.isStatic)
-          throw new ArgumentError("${v.qualifiedName} is a static variable and cannot be injected");
-        
-        im.setField(v.simpleName, _newFromTypeMirror(v.type));
-      }
-    });
-    
-    return im;
-  }
 
   /**
    * Create a new instance with a type represented by [m], resolving
    * constructor dependencies.
    */
   Object _newFromTypeMirror(ClassMirror m) {
+    Iterable<MethodMirror> constructors = m.constructors.values;
     // Choose contructor using @inject
-    MethodMirror ctor = m.constructors.values.firstWhere(
+    MethodMirror ctor = constructors.firstWhere(
       (c) => c.metadata.any(
         (m) => m.reflectee == inject)
       , orElse: () => null);
       
-    // In case there is no constructor annotated with @inject, try a no-args constructor
-    if (ctor == null)
-      ctor = m.constructors.values.firstWhere(
-          (c) => c.parameters.where((p) => !p.isOptional).length == 0
-      , orElse: () => null);
+    // In case there is no constructor annotated with @inject, try the single constructor or a no-args one.
+    if (ctor == null) {
+      if (constructors.length == 1) {
+        ctor = constructors.first;
+      } else {
+        ctor = constructors.firstWhere(
+            (c) => c.parameters.where((p) => !p.isOptional).length == 0
+        , orElse: () =>  null);
+      }
+    }
         
     if (ctor == null)
       throw new ArgumentError("${m.qualifiedName} must have a no-arg "
@@ -343,7 +333,6 @@ class Injector {
     var parameters = _resolveParameters(ctor.parameters);
     
     var instanceMirror = m.newInstance(ctor.constructorName, parameters, null);
-    instanceMirror = _resolveFieldInjectionPoints(instanceMirror);
     
     return instanceMirror.reflectee;    
   }

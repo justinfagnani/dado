@@ -4,35 +4,49 @@
 
 library dado_test;
 
-import 'package:unittest/unittest.dart';
 import 'package:dado/dado.dart';
+import 'package:inject/inject.dart';
+import 'package:unittest/unittest.dart';
 
 // object with a dependency bound to an instance
 class Foo {
   String name;
+  
+  @inject
+  NeedsInjector b;
+  
+  @inject
   Foo(String this.name);
+  
   String toString() => "Foo { name: $name}";
 }
 
 // object with a singleton dependecy
 class Bar {
   Foo foo;
+  
+  @inject
   Bar(Foo this.foo);
+  
   String toString() => "Bar {foo: $foo}";
 }
 
 // subclass of dependency for binding
 class SubBar extends Bar {
+  @inject
   SubBar(Foo foo) : super(foo);
 }
 
 // object with an unscoped (non-singleton) dependency
 class Baz {
   Bar bar;
+
+  @inject
   Baz(Bar this.bar);
 }
 
 class SubBaz extends Baz {
+  @inject
   SubBaz(Bar bar) : super(bar);
 }
 
@@ -41,18 +55,22 @@ class Qux {
 
 // object with a cyclic, unscoped dependency
 class Cycle {
+  @inject
   Cycle(Cycle c);
 }
 
 // object that depends on the module
 class NeedsInjector {
   Injector injector;
+  
+  @inject
   NeedsInjector(Injector this.injector);
 }
 
 // a class that's not injectable, and so needs a provider function
 class Provided {
   final int i;
+  
   Provided(int this.i, Foo foo);
 }
 
@@ -60,6 +78,7 @@ const A = 'a';
 const B = 'b';
 
 abstract class Module1 extends Module {
+  int number = 1;
 
   // an instance of a type, similar to bind().toInstance() in Guice
   String string = "a";

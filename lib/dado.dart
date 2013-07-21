@@ -59,6 +59,7 @@ library dado;
 
 import 'dart:async';
 import 'dart:mirrors';
+import 'package:inject/inject.dart';
 import 'src/mirror_utils.dart';
 
 typedef Object _Provider(Injector injector);
@@ -230,7 +231,7 @@ class Injector {
   }
 
   List<Object> _resolveParameters(List<ParameterMirror> parameters) =>
-      parameters.map((ParameterMirror p) {
+      parameters.where((ParameterMirror p) => !p.isOptional).map((ParameterMirror p) {
         var name = p.type.qualifiedName;
         var annotation = _getAnnotation(p);
         var key = new Key(name, annotatedWith: annotation);
@@ -300,23 +301,51 @@ class Injector {
       }
     });
   }
+  
+  InstanceMirror _resolveFieldInjectionPoints (InstanceMirror im) {
+    im.type.variables.values.forEach((v) {
+      if (v.metadata.any((m) => m.reflectee == inject)) {
+        if (v.isFinal)
+          throw new ArgumentError("${v.qualifiedName} is a final variable and cannot be injected");
+        
+        if (v.isStatic)
+          throw new ArgumentError("${v.qualifiedName} is a static variable and cannot be injected");
+        
+        im.setField(v.simpleName, _newFromTypeMirror(v.type));
+      }
+    });
+    
+    return im;
+  }
 
   /**
    * Create a new instance with a type represented by [m], resolving
    * constructor dependencies.
    */
   Object _newFromTypeMirror(ClassMirror m) {
-      // Choose contructor using @inject when we can
-      MethodMirror ctor = (m.constructors.length == 1)
-          ? m.constructors.values.first
-          : m.constructors[new Symbol('')];
-      if (ctor == null) {
-        throw new ArgumentError("${m.qualifiedName} must have a no-arg"
-            "constructor or a single constructor");
-      }
-      // resolve dependencies
-      var parameters = _resolveParameters(ctor.parameters);
-      return m.newInstance(ctor.constructorName, parameters, null).reflectee;
+    // Choose contructor using @inject
+    MethodMirror ctor = m.constructors.values.firstWhere(
+      (c) => c.metadata.any(
+        (m) => m.reflectee == inject)
+      , orElse: () => null);
+      
+    // In case there is no constructor annotated with @inject, try a no-args constructor
+    if (ctor == null)
+      ctor = m.constructors.values.firstWhere(
+          (c) => c.parameters.where((p) => !p.isOptional).length == 0
+      , orElse: () => null);
+        
+    if (ctor == null)
+      throw new ArgumentError("${m.qualifiedName} must have a no-arg "
+        "constructor or a single constructor");
+    
+    // resolve dependencies
+    var parameters = _resolveParameters(ctor.parameters);
+    
+    var instanceMirror = m.newInstance(ctor.constructorName, parameters, null);
+    instanceMirror = _resolveFieldInjectionPoints(instanceMirror);
+    
+    return instanceMirror.reflectee;    
   }
 
   String toString() => 'Injector: $name';

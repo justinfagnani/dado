@@ -107,6 +107,18 @@ class Bar {
   Bar(Foo foo);
 }
 
+class Baz {
+	String serverAddress;
+	
+	Baz();
+	
+	// In classes that have multiple constructors, the desired constructor can
+	// be selected using the @inject annotation. Otherwise, Dado will look for
+	// a no-args constructor.
+	@inject
+	Baz.injectable(String this.serverAddress);
+}
+
 main() {
   var injector = new Injector([MyModule]);
   Bar bar = injector.getInstance(Bar);
@@ -122,8 +134,6 @@ production yet.
 Known Issues and Limitations
 ----------------------------
 
- * Injectable classes must either have a default constructor or a single
-   constructor.
  * There can only be one binding per type, because parameter annotations cannot
    be access via mirrors yet. When issue 11418 is fixed, Dado will respect
    annotations of parameters.
@@ -137,7 +147,7 @@ Known Issues and Limitations
 Star Fishing
 ------------
 
-These are open issues that are blocking certain features od Dado:
+These are open issues that are blocking certain features of Dado:
 
  * http://dartbug.com/5897 Look up classes by name
  * http://dartbug.com/9395 Get qualified name from Type

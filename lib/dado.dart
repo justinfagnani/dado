@@ -314,7 +314,7 @@ class Injector {
         (m) => m.reflectee == inject)
       , orElse: () => null);
       
-    // In case there is no constructor annotated with @inject, try the single constructor or a no-args one.
+    // In case there is no constructor annotated with @inject, see if there's a single constructor or a no-args.
     if (ctor == null) {
       if (constructors.length == 1) {
         ctor = constructors.first;

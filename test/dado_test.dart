@@ -64,6 +64,23 @@ class Provided {
   Provided(int this.i, Foo foo);
 }
 
+class HasAnnotatedConstructor {
+  String a;
+  
+  HasAnnotatedConstructor ();
+  
+  @inject
+  HasAnnotatedConstructor.second (String this.a);
+}
+
+class HasNoArgsConstructor {
+  String a;
+  
+  HasNoArgsConstructor (String this.a);
+  
+  HasNoArgsConstructor.noArgs ();
+}
+
 const A = 'a';
 const B = 'b';
 
@@ -90,6 +107,10 @@ abstract class Module1 extends Module {
 
   // a class that injects the module
   NeedsInjector needsInjector();
+  
+  HasAnnotatedConstructor hasAnnotatedConstructor(); 
+  
+  HasNoArgsConstructor hasNoArgsConstructor(); 
 
   Baz get baz => bindTo(SubBaz).singleton;
 
@@ -191,6 +212,19 @@ main() {
         called = true;
       });
       expect(called, true);
+    });
+    
+
+    test('should use annotated constructor', () {
+      var o = injector.getInstanceOf(HasAnnotatedConstructor);
+      expect(o, new isInstanceOf<HasAnnotatedConstructor>());
+      expect(o.a, 'a');
+    });
+    
+    test('should use no-args  constructor', () {
+      var o = injector.getInstanceOf(HasNoArgsConstructor);
+      expect(o, new isInstanceOf<HasNoArgsConstructor>());
+      expect(o.a, null);
     });
 
   });

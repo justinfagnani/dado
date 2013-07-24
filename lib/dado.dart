@@ -243,7 +243,6 @@ class Injector {
     var moduleMirrors = modules.map((moduleType) => reflectClass(moduleType));
     
     moduleMirrors.forEach(_registerBindings);
-    //moduleMirrors.forEach(_analyzeObjectGraph);
   }
 
   /**
@@ -385,57 +384,6 @@ class Injector {
       }
     });
   }
-  
-//  void _analyzeObjectGraph (ClassMirror classMirror) {
-//    classMirror.members.values.forEach((member) {
-//      
-//      // There is no way that "to instance" bindings could have circular
-//      // dependencies, so we only analyze the others bindings
-//      if (member is MethodMirror) {
-//        if (member.isAbstract) {
-//          _verifyCycle(member.returnType, _getAnnotation(member));
-//        } else if (!member.isGetter) {
-//          member.parameters.forEach((p) {
-//            var pAnnotation = _getAnnotation(p);
-//            var pKey = new Key(p.type.qualifiedName, 
-//                annotatedWith: pAnnotation);
-//            
-//            var instance = _singletons[pKey];
-//            if (instance != null)
-//              return;
-//            
-//            _verifyCycle(p.type, pAnnotation, 
-//                dependencyStack: [member.returnType.qualifiedName]);
-//          });
-//        }
-//      }
-//    });
-//  }
-//  
-//  void _verifyCycle (TypeMirror m, annotation, 
-//                     {List<Symbol> dependencyStack}) {
-//    if (dependencyStack == null)
-//      dependencyStack = [m.qualifiedName];
-//    
-//    MethodMirror ctor = _selectConstructor(m);
-//    ctor.parameters.forEach((p) {
-//      var pAnnotation = _getAnnotation(p);
-//      var pKey = new Key(p.type.qualifiedName, 
-//          annotatedWith: pAnnotation);
-//      
-//      var instance = _singletons[pKey];
-//      if (instance != null)
-//        return;
-//      
-//      if (dependencyStack.contains(p.type.qualifiedName))
-//        throw new ArgumentError("Circular dependency found on type "
-//            "${p.type.qualifiedName}.");
-//      
-//      dependencyStack.add(p.type.qualifiedName);
-//      _verifyCycle(p.type, pAnnotation, dependencyStack: dependencyStack);
-//      dependencyStack.removeLast();
-//    });
-//  }
   
   MethodMirror _selectConstructor (ClassMirror m) {
     Iterable<MethodMirror> constructors = m.constructors.values;

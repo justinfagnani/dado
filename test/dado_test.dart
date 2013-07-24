@@ -81,6 +81,18 @@ class HasNoArgsConstructor {
   HasNoArgsConstructor.noArgs ();
 }
 
+class IndirectCycle {
+  IndirectCycle2 id;
+  
+  IndirectCycle (IndirectCycle2 this.id);
+}
+
+class IndirectCycle2 {
+  IndirectCycle id;
+  
+  IndirectCycle2 (IndirectCycle this.id);
+}
+
 const A = 'a';
 const B = 'b';
 
@@ -103,7 +115,11 @@ abstract class Module1 extends Module {
   Bar newBar();
 
   // to test that direct cyclical dependencies fail. TODO: indirect cycles
-  Cycle newCycle();
+  Cycle get newCycle => bindTo(Cycle).newInstance();
+  
+//  IndirectCycle newIndirectCycle();
+//  
+//  IndirectCycle2 newIndirectCycle2();
 
   // a class that injects the module
   NeedsInjector needsInjector();
@@ -135,6 +151,8 @@ abstract class Module3 extends Module {
 }
 
 main() {
+  new Injector([Module3]);
+  new Injector([Module1]);
 
   group('injector',(){
     Injector injector;

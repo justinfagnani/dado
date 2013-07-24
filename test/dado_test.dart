@@ -115,7 +115,7 @@ abstract class Module1 extends Module {
   Bar newBar();
 
   // to test that direct cyclical dependencies fail. TODO: indirect cycles
-  Cycle get newCycle => bindTo(Cycle).newInstance();
+  Cycle newCycle();
   
 //  IndirectCycle newIndirectCycle();
 //  
@@ -151,8 +151,6 @@ abstract class Module3 extends Module {
 }
 
 main() {
-  new Injector([Module3]);
-  new Injector([Module1]);
 
   group('injector',(){
     Injector injector;

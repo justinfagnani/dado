@@ -114,9 +114,9 @@ abstract class Module1 extends Module {
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
 
-  // to test that direct cyclical dependencies fail. TODO: indirect cycles
-  Cycle newCycle();
-  
+  // to test that direct cyclical dependencies fail.
+//  Cycle newCycle();
+//  
 //  IndirectCycle newIndirectCycle();
 //  
 //  IndirectCycle2 newIndirectCycle2();
@@ -151,6 +151,8 @@ abstract class Module3 extends Module {
 }
 
 main() {
+  new Injector([Module3]);
+  new Injector([Module1]);
 
   group('injector',(){
     Injector injector;

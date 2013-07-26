@@ -124,15 +124,20 @@ class Key {
  *
  */
 class Injector {
-  static final Symbol _injectorClassName = reflectClass(Injector).qualifiedName;
-  static final Key _injectorKey = new Key(_injectorClassName);
+  /// The key that indentifies the default Injector binding.
+  static final Key _injectorKey = 
+      new Key(reflectClass(Injector).qualifiedName);
+  
   /// The parent of this injector, if it's a child, or null.
   final Injector parent;
 
   /// The name of this injector, if one was provided.
   final String name;
 
+  /// The identity of the bindings that must be overriden by this injector.
   final List<Key> _newInstances;
+  
+  /// The map of bindings and its indentities.
   final Map<Key, Binding> _bindings = new Map<Key, Binding>();
   
   /**
@@ -154,7 +159,7 @@ class Injector {
           'injectors.');
     }
     
-    _bindings[_injectorKey] = new InstanceBinding(_injectorKey, this);
+    _bindings[_injectorKey] = new _InstanceBinding(_injectorKey, this);
     
     var moduleMirrors = modules.map((moduleType) => reflectClass(moduleType));
     
@@ -221,13 +226,10 @@ class Injector {
 
   Object _getAnnotation(DeclarationMirror m) {
     // There's some bug with requesting metadata from certain variable mirrors
-    // that causes a NoSuchMe thodError because the mirror system is trying to
-    // call 'resolve' on null. See dartbug.com/11418
+    // that causes a UnimplementedError. See dartbug.com/11418
     List<InstanceMirror> metadata;
     try {
       metadata = m.metadata;
-    } on NoSuchMethodError catch (e) {
-      return null;
     } on UnimplementedError catch (e) {
       return null;
     }
@@ -258,7 +260,7 @@ class Injector {
         var name = member.type.qualifiedName;
         var annotation = _getAnnotation(member);
         var key = new Key(name, annotatedWith: annotation);
-        _bindings[key] = new InstanceBinding(key, instance);
+        _bindings[key] = new _InstanceBinding(key, instance);
 
       } else if (member is MethodMirror) {
         var name = member.returnType.qualifiedName;
@@ -267,11 +269,11 @@ class Injector {
         if (member.isAbstract) {
           if (member.isGetter) {
             // Abstract getters define singleton bindings
-            _bindings[key] = new ConstructorBinding.asSingleton(key, 
+            _bindings[key] = new _ConstructorBinding.asSingleton(key, 
                 _selectConstructor(member.returnType));
           } else {
             // Abstract methods define unscoped bindings
-            _bindings[key] = new ConstructorBinding(key, 
+            _bindings[key] = new _ConstructorBinding(key, 
                 _selectConstructor(member.returnType));
           }
         } else {
@@ -288,14 +290,14 @@ class Injector {
           if (member.isGetter) {
             // getters should define singleton bindings
             _bindings[key] = 
-                new ProviderBinding.asSingleton(key, member, moduleMirror);
+                new _ProviderBinding.asSingleton(key, member, moduleMirror);
           } else {
             // methods should define unscoped bindings
             // TODO(justin): allow parameters in module method? This would make
             // defining provided bindings much shorter when they rebind to a
             // new type.
             _bindings[key] = 
-                new ProviderBinding(key, member, moduleMirror);
+                new _ProviderBinding(key, member, moduleMirror);
           }
         }
       }
@@ -347,7 +349,7 @@ class Injector {
       throw new ArgumentError("${m.qualifiedName} must have a no-arg "
         "constructor or a single constructor");
     
-    _bindings[key] = new ConstructorBinding(key, ctor);
+    _bindings[key] = new _ConstructorBinding(key, ctor);
     
   }
 
@@ -390,11 +392,11 @@ class ProvidedBinder extends _Binder {
   }
 
   Object get singleton {
-    if ((_injector._getBinding(_boundKey) as ProviderBinding).singletonInstance == null) {
-      (_injector._getBinding(_boundKey) as ProviderBinding).singletonInstance = _injector.callInjected(provider);
+    if ((_injector._getBinding(_boundKey) as _ProviderBinding).singletonInstance == null) {
+      (_injector._getBinding(_boundKey) as _ProviderBinding).singletonInstance = _injector.callInjected(provider);
     }
     
-    return (_injector._getBinding(_boundKey) as ProviderBinding).singletonInstance;
+    return (_injector._getBinding(_boundKey) as _ProviderBinding).singletonInstance;
   }
 
   Object newInstance() => _injector.callInjected(provider);

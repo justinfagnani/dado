@@ -1,16 +1,17 @@
 part of dado;
 
-class BindingType {
-  final String value;
-  
-  const BindingType (this.value);
-}
-
+/**
+ * Bindings define the way that instances of a [Key] are created. They are used
+ * to hide all the logic needed to build an instance, store a singleton instance
+ * and analize dependencies.
+ * 
+ * This is an interface, so there can be several types of Bindings, each one 
+ * with its own internal logic to build instances and define its scope.
+ */
 abstract class Binding {
   final Key key;
-  final BindingType bindingType;
   
-  Binding (this.key, this.bindingType);
+  Binding (this.key);
   
   Object getInstance (Injector injector);
   
@@ -19,11 +20,11 @@ abstract class Binding {
   void _verifyCircularDependency (Injector injector, {List<Key> dependencyStack});
 }
 
-class InstanceBinding extends Binding {
+class _InstanceBinding extends Binding {
   final Object instance;
   
-  InstanceBinding (Key key, Object this.instance) : 
-    super(key, const BindingType('instance'));
+  _InstanceBinding (Key key, Object this.instance) : 
+    super(key);
   
   Object getInstance (Injector injector) => instance;
   
@@ -32,18 +33,18 @@ class InstanceBinding extends Binding {
   void _verifyCircularDependency (Injector injector, {List<Key> dependencyStack}) {}
 }
 
-class ConstructorBinding extends Binding {
+class _ConstructorBinding extends Binding {
   final MethodMirror constructor;
   final bool singleton;
   Object singletonInstance;
   
-  ConstructorBinding 
+  _ConstructorBinding 
     (Key key, MethodMirror this.constructor) :
-    singleton = false, super(key, const BindingType('constructor'));
+    singleton = false, super(key);
   
-  ConstructorBinding.asSingleton
+  _ConstructorBinding.asSingleton
     (Key key, MethodMirror this.constructor) :
-    singleton = true, super(key, const BindingType('singletonConstructor'));
+    singleton = true, super(key);
   
   Object getInstance (Injector injector) {
     if (singleton && singletonInstance != null)
@@ -93,19 +94,19 @@ class ConstructorBinding extends Binding {
   }
 }
 
-class ProviderBinding extends Binding {
+class _ProviderBinding extends Binding {
   final MethodMirror provider;
   final bool singleton;
   final InstanceMirror moduleMirror;
   Object singletonInstance;
   
-  ProviderBinding 
+  _ProviderBinding 
     (Key key, MethodMirror this.provider, InstanceMirror this.moduleMirror) :
-    singleton = false, super(key, const BindingType('provider'));
+    singleton = false, super(key);
   
-  ProviderBinding.asSingleton
+  _ProviderBinding.asSingleton
     (Key key, MethodMirror this.provider, InstanceMirror this.moduleMirror) :
-    singleton = true, super(key, const BindingType('singletonProvider'));
+    singleton = true, super(key);
   
   Object getInstance (Injector injector) {
     if (singleton && singletonInstance != null)

@@ -69,23 +69,3 @@ bool hasSuperclass(ClassMirror classMirror) {
   return (superclass != null)
       && (superclass.qualifiedName != "dart.core.Object");
 }
-
-Object getBindingAnnotation (DeclarationMirror m) {
-  // There's some bug with requesting metadata from certain variable mirrors
-  // that causes a NoSuchMe thodError because the mirror system is trying to
-  // call 'resolve' on null. See dartbug.com/11418
-  List<InstanceMirror> metadata;
-  try {
-    metadata = m.metadata;
-  } on NoSuchMethodError catch (e) {
-    return null;
-  }
-  if (metadata.isNotEmpty) {
-    // TODO(justin): what do we do when a declaration has multiple
-    // annotations? What does Guice do? We should probably only allow one
-    // binding annotation per declaration, which means we need a way to
-    // identify binding annotations.
-    return metadata.first.reflectee;
-  }
-  return null;
-}

@@ -228,7 +228,10 @@ class Injector {
       metadata = m.metadata;
     } on NoSuchMethodError catch (e) {
       return null;
+    } on UnimplementedError catch (e) {
+      return null;
     }
+    
     if (metadata.isNotEmpty) {
       // TODO(justin): what do we do when a declaration has multiple
       // annotations? What does Guice do? We should probably only allow one

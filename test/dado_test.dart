@@ -114,13 +114,6 @@ abstract class Module1 extends Module {
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
 
-  // to test that direct cyclical dependencies fail.
-//  Cycle newCycle();
-//  
-//  IndirectCycle newIndirectCycle();
-//  
-//  IndirectCycle2 newIndirectCycle2();
-
   // a class that injects the module
   NeedsInjector needsInjector();
   
@@ -150,10 +143,19 @@ abstract class Module3 extends Module {
   Bar newBar() => bindTo(SubBar).newInstance();
 }
 
-main() {
-  new Injector([Module3]);
-  new Injector([Module1]);
+abstract class Module4 extends Module {
+  // to test that direct cyclical dependencies fail.
+  Cycle newCycle();
+}
 
+abstract class Module5 extends Module {
+  // to test that indirect cyclical dependencies fail.
+  IndirectCycle newIndirectCycle();
+  
+  IndirectCycle2 newIndirectCycle2();
+}
+
+main() {
   group('injector',(){
     Injector injector;
 
@@ -214,10 +216,6 @@ main() {
       expect(provided.i, 2);
     });
 
-    test('should throw exceptions on dependency cycles', () {
-      expect(() => injector.getInstanceOf(Cycle), throws);
-    });
-
     test('should inject itself', () {
       NeedsInjector o = injector.getInstanceOf(NeedsInjector);
       expect(o.injector, same(injector));
@@ -232,17 +230,24 @@ main() {
       expect(called, true);
     });
     
-
     test('should use annotated constructor', () {
       var o = injector.getInstanceOf(HasAnnotatedConstructor);
       expect(o, new isInstanceOf<HasAnnotatedConstructor>());
       expect(o.a, 'a');
     });
     
-    test('should use no-args  constructor', () {
+    test('should use no-args constructor', () {
       var o = injector.getInstanceOf(HasNoArgsConstructor);
       expect(o, new isInstanceOf<HasNoArgsConstructor>());
       expect(o.a, null);
+    });
+    
+    test('should throw ArgumentError on direct cyclical dependencies', () {
+      expect(() => new Injector([Module4]), throwsArgumentError);
+    });
+    
+    test('should throw ArgumentError on indirect cyclical dependencies', () {
+      expect(() => new Injector([Module5]), throwsArgumentError);
     });
 
   });
@@ -318,5 +323,5 @@ main() {
     });
 
   });
-
+  
 }

@@ -65,14 +65,15 @@ import 'src/mirror_utils.dart';
 part 'src/binding.dart';
 
 Symbol _typeName(type) {
-  if (type is Type)
+  if (type is Type) {
     return reflectClass(type).qualifiedName;
-  else if (type is TypeMirror)
+  } else if (type is TypeMirror) {
     return type.qualifiedName;
-  else if (type is Symbol)
+  } else if (type is Symbol) {
     return type;
-  else
+  } else {
     throw new ArgumentError("type must be a Type, a TypeMirror or a Symbol");
+  }
 }
 
 Key _makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);

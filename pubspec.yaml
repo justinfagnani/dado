@@ -5,6 +5,8 @@ description: An experimental dependency injection container for Dart
 homepage: http://dart-lang.github.io/dado/
 documentation: http://dart-lang.github.io/dado/docs/dado.html
 dependencies:
+  inject: any
   logging: any
+  meta: any
 dev_dependencies:
   unittest: any

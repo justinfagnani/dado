@@ -4,20 +4,25 @@
 
 library dado_test;
 
-import 'package:unittest/unittest.dart';
 import 'package:dado/dado.dart';
+import 'package:inject/inject.dart';
+import 'package:unittest/unittest.dart';
 
 // object with a dependency bound to an instance
 class Foo {
   String name;
+  
   Foo(String this.name);
+  
   String toString() => "Foo { name: $name}";
 }
 
 // object with a singleton dependecy
 class Bar {
   Foo foo;
+  
   Bar(Foo this.foo);
+  
   String toString() => "Bar {foo: $foo}";
 }
 
@@ -29,6 +34,7 @@ class SubBar extends Bar {
 // object with an unscoped (non-singleton) dependency
 class Baz {
   Bar bar;
+
   Baz(Bar this.bar);
 }
 
@@ -47,19 +53,59 @@ class Cycle {
 // object that depends on the module
 class NeedsInjector {
   Injector injector;
+  
   NeedsInjector(Injector this.injector);
 }
 
 // a class that's not injectable, and so needs a provider function
 class Provided {
   final int i;
+  
   Provided(int this.i, Foo foo);
+}
+
+class HasAnnotatedConstructor {
+  String a;
+  
+  HasAnnotatedConstructor ();
+  
+  @inject
+  HasAnnotatedConstructor.second (String this.a);
+}
+
+class HasNoArgsConstructor {
+  String a;
+  
+  HasNoArgsConstructor (String this.a);
+  
+  HasNoArgsConstructor.noArgs ();
+}
+
+
+// Indirect circular dependency tests classes
+class Quux {
+  Corge corge;
+  
+  Quux (Corge this.corge);
+}
+
+class Corge {
+  Grault grault;
+  
+  Corge (Grault this.grault);
+}
+
+class Grault {
+  Quux quux;
+  
+  Grault (Quux this.quux);
 }
 
 const A = 'a';
 const B = 'b';
 
 abstract class Module1 extends Module {
+  int number = 1;
 
   // an instance of a type, similar to bind().toInstance() in Guice
   String string = "a";
@@ -76,11 +122,12 @@ abstract class Module1 extends Module {
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
 
-  // to test that direct cyclical dependencies fail. TODO: indirect cycles
-  Cycle newCycle();
-
   // a class that injects the module
   NeedsInjector needsInjector();
+  
+  HasAnnotatedConstructor hasAnnotatedConstructor(); 
+  
+  HasNoArgsConstructor hasNoArgsConstructor(); 
 
   Baz get baz => bindTo(SubBaz).singleton;
 
@@ -104,8 +151,21 @@ abstract class Module3 extends Module {
   Bar newBar() => bindTo(SubBar).newInstance();
 }
 
-main() {
+abstract class Module4 extends Module {
+  // to test that direct cyclical dependencies fail.
+  Cycle newCycle();
+}
 
+abstract class Module5 extends Module {
+  // to test that indirect cyclical dependencies fail.
+  Quux newQuux();
+  
+  Corge newCorge();
+  
+  Grault newGrault();
+}
+
+main() {
   group('injector',(){
     Injector injector;
 
@@ -166,10 +226,6 @@ main() {
       expect(provided.i, 2);
     });
 
-    test('should throw exceptions on dependency cycles', () {
-      expect(() => injector.getInstanceOf(Cycle), throws);
-    });
-
     test('should inject itself', () {
       NeedsInjector o = injector.getInstanceOf(NeedsInjector);
       expect(o.injector, same(injector));
@@ -182,6 +238,26 @@ main() {
         called = true;
       });
       expect(called, true);
+    });
+    
+    test('should use annotated constructor', () {
+      var o = injector.getInstanceOf(HasAnnotatedConstructor);
+      expect(o, new isInstanceOf<HasAnnotatedConstructor>());
+      expect(o.a, 'a');
+    });
+    
+    test('should use no-args constructor', () {
+      var o = injector.getInstanceOf(HasNoArgsConstructor);
+      expect(o, new isInstanceOf<HasNoArgsConstructor>());
+      expect(o.a, null);
+    });
+    
+    test('should throw ArgumentError on direct cyclical dependencies', () {
+      expect(() => new Injector([Module4]), throwsArgumentError);
+    });
+    
+    test('should throw ArgumentError on indirect cyclical dependencies', () {
+      expect(() => new Injector([Module5]), throwsArgumentError);
     });
 
   });
@@ -257,5 +333,5 @@ main() {
     });
 
   });
-
+  
 }

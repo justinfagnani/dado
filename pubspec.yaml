@@ -7,5 +7,6 @@ documentation: http://dart-lang.github.io/dado/docs/dado.html
 dependencies:
   inject: any
   logging: any
+  meta: any
 dev_dependencies:
   unittest: any

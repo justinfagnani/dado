@@ -103,7 +103,8 @@ class MyModule extends Module {
 }
 
 class Bar {
-  // A default method is automatically injected with dependencies
+  // When there is only one constructor, it is automatically injected with
+  // dependencies
   Bar(Foo foo);
 }
 

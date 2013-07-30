@@ -81,16 +81,24 @@ class HasNoArgsConstructor {
   HasNoArgsConstructor.noArgs ();
 }
 
-class IndirectCycle {
-  IndirectCycle2 id;
+
+// Indirect circular dependency tests classes
+class Quux {
+  Corge corge;
   
-  IndirectCycle (IndirectCycle2 this.id);
+  Quux (Corge this.corge);
 }
 
-class IndirectCycle2 {
-  IndirectCycle id;
+class Corge {
+  Grault grault;
   
-  IndirectCycle2 (IndirectCycle this.id);
+  Corge (Grault this.grault);
+}
+
+class Grault {
+  Quux quux;
+  
+  Grault (Quux this.quux);
 }
 
 const A = 'a';
@@ -150,9 +158,11 @@ abstract class Module4 extends Module {
 
 abstract class Module5 extends Module {
   // to test that indirect cyclical dependencies fail.
-  IndirectCycle newIndirectCycle();
+  Quux newQuux();
   
-  IndirectCycle2 newIndirectCycle2();
+  Corge newCorge();
+  
+  Grault newGrault();
 }
 
 main() {

@@ -69,3 +69,24 @@ bool hasSuperclass(ClassMirror classMirror) {
   return (superclass != null)
       && (superclass.qualifiedName != "dart.core.Object");
 }
+
+Object getBindingAnnotation (DeclarationMirror declarationMirror) {
+// There's some bug with requesting metadata from certain variable mirrors
+  // that causes a UnimplementedError. See dartbug.com/11418
+  List<InstanceMirror> metadata;
+  try {
+    metadata = declarationMirror.metadata;
+  } on UnimplementedError catch (e) {
+    return null;
+  }
+  
+  if (metadata.isNotEmpty) {
+    // TODO(justin): what do we do when a declaration has multiple
+    // annotations? What does Guice do? We should probably only allow one
+    // binding annotation per declaration, which means we need a way to
+    // identify binding annotations.
+    return metadata.first.reflectee;
+  }
+  
+  return null;
+}

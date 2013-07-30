@@ -10,107 +10,55 @@ part of dado;
  */
 abstract class Binding {
   final Key key;
-  
-  Binding (this.key);
-  
-  Object getInstance (Injector injector);
-  
-  Object getSingleton (Injector injector);
-  
-  void _verifyCircularDependency (Injector injector, {List<Key> dependencyStack});
-}
-
-class _InstanceBinding extends Binding {
-  final Object instance;
-  
-  _InstanceBinding (Key key, Object this.instance) : 
-    super(key);
-  
-  Object getInstance (Injector injector) => instance;
-  
-  Object getSingleton (Injector injector) => instance;
-  
-  void _verifyCircularDependency (Injector injector, {List<Key> dependencyStack}) {}
-}
-
-class _ConstructorBinding extends Binding {
-  final MethodMirror constructor;
+  final InstanceMirror moduleMirror;
   final bool singleton;
   Object singletonInstance;
   
-  _ConstructorBinding 
-    (Key key, MethodMirror this.constructor) :
-    singleton = false, super(key);
-  
-  _ConstructorBinding.asSingleton
-    (Key key, MethodMirror this.constructor) :
-    singleton = true, super(key);
+  Binding (Key this.key, InstanceMirror this.moduleMirror, 
+      {bool this.singleton: false});
   
   Object getInstance (Injector injector) {
     if (singleton && singletonInstance != null)
       return singletonInstance;
     
-    var parameters = injector._resolveParameters(constructor.parameters);
-    var obj = (constructor.owner as ClassMirror)
-        .newInstance(constructor.constructorName, parameters, null).reflectee;
+    var instance = buildInstance(injector);
     
     if (singleton)
-      singletonInstance = obj;
+      singletonInstance = instance;
     
-    return obj;
+    return instance;
   }
   
-  Object getSingleton (Injector injector) {
-    if (singletonInstance == null)
-      singletonInstance = getInstance(injector);
-    
-    return singletonInstance;
+  Object buildInstance (Injector injector);
+  
+  Iterable<Key> getDependencies ();
+  
+}
+
+class _InstanceBinding extends Binding {
+  
+  _InstanceBinding (Key key, Object instance, InstanceMirror moduleMirror) : 
+    super(key, moduleMirror, singleton: true) {
+    singletonInstance = instance;
   }
   
-  void _verifyCircularDependency (Injector injector, {List<Key> dependencyStack}) {
-    if (dependencyStack == null)
-      dependencyStack = [key];
-    
-    var parametersKeys = constructor.parameters.map((p) {
-      var name = _typeName(p.type);
-      var annotation = injector._getAnnotation(p);
-      return new Key(name, annotatedWith: annotation);
-    });
-    
-    parametersKeys.forEach((parameterKey) {
-      if (dependencyStack.contains(parameterKey))
-        throw new ArgumentError(
-            'Circular dependency found on type ${parameterKey.name}');
-      
-      var parameterBinding = injector._getBinding(parameterKey);
-      
-      if (parameterBinding == null)
-        throw new ArgumentError('Key: $parameterKey has not been bound.');
-      
-      dependencyStack.add(parameterKey);
-      parameterBinding._verifyCircularDependency(injector, dependencyStack: dependencyStack);
-      dependencyStack.remove(parameterKey);
-    });
-  }
+  Object buildInstance (Injector injector) => singletonInstance;
+  
+  Iterable<Key> getDependencies () => [];
+  
 }
 
 class _ProviderBinding extends Binding {
   final MethodMirror provider;
-  final bool singleton;
-  final InstanceMirror moduleMirror;
-  Object singletonInstance;
   
   _ProviderBinding 
-    (Key key, MethodMirror this.provider, InstanceMirror this.moduleMirror) :
-    singleton = false, super(key);
+  (Key key, MethodMirror this.provider, InstanceMirror moduleMirror, 
+      {bool singleton: false}) :
+        super(key, moduleMirror, singleton: singleton);
   
-  _ProviderBinding.asSingleton
-    (Key key, MethodMirror this.provider, InstanceMirror this.moduleMirror) :
-    singleton = true, super(key);
-  
-  Object getInstance (Injector injector) {
-    if (singleton && singletonInstance != null)
-      return singletonInstance;
+  Object buildInstance (Injector injector) {
+    if (moduleMirror == null)
+      return null;
     
     moduleMirror.reflectee._currentInjector = injector;
     moduleMirror.reflectee._currentKey = key;
@@ -124,42 +72,33 @@ class _ProviderBinding extends Binding {
       obj = moduleMirror.getField(provider.simpleName).reflectee;
     }
     
-    if (singleton)
-      singletonInstance = obj;
-    
     return obj;
   }
   
-  Object getSingleton (Injector injector) {
-    if (singletonInstance == null)
-      singletonInstance = getInstance(injector);
-    
-    return singletonInstance;
-  }
-  
-  void _verifyCircularDependency (Injector injector, {List<Key> dependencyStack}) {
-    if (dependencyStack == null)
-      dependencyStack = [key];
-    
-    var parametersKeys = provider.parameters.map((p) {
-      var name = _typeName(p.type);
-      var annotation = injector._getAnnotation(p);
+  Iterable<Key> getDependencies () {
+    return provider.parameters.map((parameter) {
+      var name = _typeName(parameter.type);
+      var annotation = getBindingAnnotation(parameter);
       return new Key(name, annotatedWith: annotation);
     });
-    
-    parametersKeys.forEach((parameterKey) {
-      if (dependencyStack.contains(parameterKey))
-        throw new ArgumentError(
-            'Circular dependency found on type ${parameterKey.name}');
-      
-      var parameterBinding = injector._getBinding(parameterKey);
-      
-      if (parameterBinding == null)
-        throw new ArgumentError('Key: $parameterKey has not been bound.');
-      
-      dependencyStack.add(parameterKey);
-      parameterBinding._verifyCircularDependency(injector, dependencyStack: dependencyStack);
-      dependencyStack.remove(parameterKey);
-    });
   }
+  
+}
+
+class _ConstructorBinding extends _ProviderBinding {
+  
+  _ConstructorBinding 
+    (Key key, MethodMirror constructor, InstanceMirror moduleMirror, 
+        {bool singleton: false}) : 
+      super(key, constructor, moduleMirror, singleton: singleton);
+  
+  @override
+  Object buildInstance (Injector injector) {
+    var parameters = injector._resolveParameters(provider.parameters);
+    var obj = (provider.owner as ClassMirror)
+        .newInstance(provider.constructorName, parameters, null).reflectee;
+    
+    return obj;
+  }
+
 }

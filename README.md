@@ -109,15 +109,15 @@ class Bar {
 }
 
 class Baz {
-	String serverAddress;
-	
-	Baz();
-	
-	// In classes that have multiple constructors, the desired constructor can
-	// be selected using the @inject annotation. Otherwise, Dado will look for
-	// a no-args constructor.
-	@inject
-	Baz.injectable(String this.serverAddress);
+  String serverAddress;
+  
+  Baz();
+  
+  // In classes that have multiple constructors, the desired constructor can
+  // be selected using the @inject annotation. Otherwise, Dado will look for
+  // a no-args constructor.
+  @inject
+  Baz.injectable(String this.serverAddress);
 }
 
 main() {

@@ -67,18 +67,18 @@ class Provided {
 class HasAnnotatedConstructor {
   String a;
   
-  HasAnnotatedConstructor ();
+  HasAnnotatedConstructor();
   
   @inject
-  HasAnnotatedConstructor.second (String this.a);
+  HasAnnotatedConstructor.second(String this.a);
 }
 
 class HasNoArgsConstructor {
   String a;
   
-  HasNoArgsConstructor (String this.a);
+  HasNoArgsConstructor(String this.a);
   
-  HasNoArgsConstructor.noArgs ();
+  HasNoArgsConstructor.noArgs();
 }
 
 
@@ -86,19 +86,19 @@ class HasNoArgsConstructor {
 class Quux {
   Corge corge;
   
-  Quux (Corge this.corge);
+  Quux(Corge this.corge);
 }
 
 class Corge {
   Grault grault;
   
-  Corge (Grault this.grault);
+  Corge(Grault this.grault);
 }
 
 class Grault {
   Quux quux;
   
-  Grault (Quux this.quux);
+  Grault(Quux this.quux);
 }
 
 const A = 'a';

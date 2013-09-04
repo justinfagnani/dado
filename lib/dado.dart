@@ -79,13 +79,13 @@ Key _makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);
  */
 class Key {
   final Symbol name;
-  final annotation;
+  final Object annotation;
 
-  Key(this.name, {annotatedWith}) : annotation = annotatedWith {
+  Key(this.name, {Object annotatedWith}) : annotation = annotatedWith {
     if (name == null) throw new ArgumentError("name must not be null");
   }
 
-  factory Key.forType(Type type, {annotatedWith}) =>
+  factory Key.forType(Type type, {Object annotatedWith}) =>
       new Key(_typeName(type), annotatedWith: annotatedWith);
 
   bool operator ==(o) => o is Key && o.name == name
@@ -172,7 +172,7 @@ class Injector {
    * Returns an instance of [type]. If [annotatedWith] is provided, returns an
    * instance that was bound with the annotation.
    */
-  Object getInstanceOf(Type type, {annotatedWith}) {
+  Object getInstanceOf(Type type, {Object annotatedWith}) {
     var key = new Key(_typeName(type), annotatedWith: annotatedWith);
     
     if (_newInstances.contains(key) && !_bindings.containsKey(key)) {
@@ -218,7 +218,9 @@ class Injector {
   List<Object> _resolveParameters(List<ParameterMirror> parameters) =>
       parameters.where((parameter) => !parameter.isOptional).map(
           (parameter) =>
-            _getInstanceOf(new Key(parameter.type.qualifiedName, annotatedWith: getBindingAnnotation(parameter)))
+            _getInstanceOf(
+                new Key(parameter.type.qualifiedName, 
+                    annotatedWith: getBindingAnnotation(parameter)))
       ).toList(growable: false);
 
   void _registerBindings(Type moduleType){
@@ -333,7 +335,7 @@ class Injector {
   /**
    * Create a new constructor binding for [type]
    */
-  Key _createBindingForType(Type type, {annotatedWith}) {
+  Key _createBindingForType(Type type, {Object annotatedWith}) {
     var classMirror = reflectClass(type);
     // Select appropriate constructor
     MethodMirror ctor = _selectConstructor(classMirror);
@@ -431,7 +433,7 @@ abstract class Module {
   Injector _currentInjector;
   Key _currentKey;
 
-  Binder bindTo(Type type, {annotatedWith}) {
+  Binder bindTo(Type type, {Object annotatedWith}) {
     assert(_currentInjector != null);
     assert(_currentKey != null);
     

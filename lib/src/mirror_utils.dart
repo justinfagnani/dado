@@ -4,7 +4,6 @@
 
 library dado.mirror_utils;
 
-import 'dart:async';
 import 'dart:collection';
 import 'dart:mirrors';
 

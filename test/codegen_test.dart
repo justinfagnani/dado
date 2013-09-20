@@ -13,7 +13,7 @@ import 'package:analyzer_experimental/src/generated/engine.dart';
 import 'package:analyzer_experimental/src/generated/ast.dart';
 import 'package:analyzer_experimental/src/generated/scanner.dart';
 import 'package:dado/codegen.dart';
-import 'package:pathos/path.dart' as path;
+import 'package:path/path.dart' as path;
 
 //These tests currently expect to be run from the top-level dado directory.
 main() {
@@ -156,7 +156,7 @@ class InjectorImportMatcher extends GeneralizingASTVisitor {
 Matcher throwsArgumentErrorWithMsg(String msg) =>
     new Throws(new ArgumentErrorWithMsg(msg));
 
-class ArgumentErrorWithMsg extends BaseMatcher {
+class ArgumentErrorWithMsg extends Matcher {
   final String _msg;
   const ArgumentErrorWithMsg(this._msg);
   bool matches(item, Map matchState) => item is ArgumentError &&

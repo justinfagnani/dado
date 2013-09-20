@@ -8,6 +8,6 @@ dependencies:
   analyzer_experimental: any
   args: any
   logging: any
-  pathos: any
+  path: any
 dev_dependencies:
   unittest: any

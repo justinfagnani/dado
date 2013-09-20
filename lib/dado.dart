@@ -57,9 +57,7 @@
  */
 library dado;
 
-import 'dart:async';
 import 'dart:mirrors';
-import 'src/mirror_utils.dart';
 
 typedef Object _Provider(Injector injector);
 

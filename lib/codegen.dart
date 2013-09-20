@@ -15,7 +15,7 @@ import 'package:analyzer_experimental/src/generated/sdk_io.dart'
   show DirectoryBasedDartSdk;
 import 'package:analyzer_experimental/src/generated/source_io.dart';
 import 'package:logging/logging.dart';
-import 'package:pathos/path.dart' as path;
+import 'package:path/path.dart' as path;
 
 part 'codegen_utils.dart';
 part 'codegen_visitors.dart';

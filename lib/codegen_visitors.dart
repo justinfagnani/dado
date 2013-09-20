@@ -74,6 +74,8 @@ class ModuleAstVisitor extends GeneralizingASTVisitor {
   ModuleAstVisitor(this._moduleClass);
 
   visitSimpleIdentifier(SimpleIdentifier node) {
+    // TODO: element no longer exists on SimpleIdentifier. I don't know if the
+    // intent here is to use propagatedElement, staticElement, or bestElement.
     var element = (node.element as ClassElement);
     if (!element.type.isSubtypeOf(_moduleClass.type)) {
       throw new ArgumentError('Argument: ${element.type} to Injector is not a '

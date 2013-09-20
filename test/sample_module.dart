@@ -17,7 +17,7 @@ main(){
 /**
  * Block comment 2
  */
-class GeneratableModule1 extends Module {
+abstract class GeneratableModule1 extends Module {
   GeneratableModule1() : super();
 
   String string1 = "abbra", string2 = "cadabrra";

@@ -1,20 +1,24 @@
+// Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 part of dado;
 
 /**
  * Bindings define the way that instances of a [Key] are created. They are used
  * to hide all the logic needed to build an instance, store a singleton instance
- * and analize dependencies.
+ * and analyze dependencies.
  * 
  * This is an interface, so there can be several types of Bindings, each one 
  * with its own internal logic to build instances and define its scope.
  */
-abstract class Binding {
+abstract class _Binding {
   final Key key;
   final InstanceMirror moduleMirror;
   final bool singleton;
   Object singletonInstance;
   
-  Binding(Key this.key, InstanceMirror this.moduleMirror, 
+  _Binding(Key this.key, InstanceMirror this.moduleMirror, 
       {bool this.singleton: false});
   
   Object getInstance(Injector injector) {
@@ -36,7 +40,7 @@ abstract class Binding {
   
 }
 
-class _InstanceBinding extends Binding {
+class _InstanceBinding extends _Binding {
   
   _InstanceBinding(Key key, Object instance, InstanceMirror moduleMirror) : 
     super(key, moduleMirror, singleton: true) {
@@ -49,7 +53,7 @@ class _InstanceBinding extends Binding {
   
 }
 
-class _ProviderBinding extends Binding {
+class _ProviderBinding extends _Binding {
   final MethodMirror provider;
   
   _ProviderBinding 

@@ -4,7 +4,6 @@
 
 library dado.mirror_utils;
 
-import 'dart:async';
 import 'dart:collection';
 import 'dart:mirrors';
 
@@ -74,11 +73,7 @@ Object getBindingAnnotation (DeclarationMirror declarationMirror) {
 // There's some bug with requesting metadata from certain variable mirrors
   // that causes a UnimplementedError. See dartbug.com/11418
   List<InstanceMirror> metadata;
-  try {
-    metadata = declarationMirror.metadata;
-  } on UnimplementedError catch (e) {
-    return null;
-  }
+  metadata = declarationMirror.metadata;
   
   if (metadata.isNotEmpty) {
     // TODO(justin): what do we do when a declaration has multiple

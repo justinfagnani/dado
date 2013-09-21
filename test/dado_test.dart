@@ -166,6 +166,7 @@ abstract class Module5 extends Module {
 }
 
 main() {
+  new Injector([Module5]);
   group('injector',(){
     Injector injector;
 

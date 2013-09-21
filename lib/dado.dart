@@ -64,9 +64,7 @@ import 'src/mirror_utils.dart';
 
 part 'src/binding.dart';
 
-Symbol _typeName(Type type) {
-  return reflectClass(type).qualifiedName;
-}
+Symbol _typeName(Type type) => reflectClass(type).qualifiedName;
 
 Key _makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);
 
@@ -93,7 +91,8 @@ class Key {
 
   int get hashCode => name.hashCode * 37 + annotation.hashCode;
 
-  String toString() => '$name annotated with $annotation';
+  String toString() => 'Key: $name'
+      '${(annotation!=null?' annotated with $annotation': '')}';
 }
 
 /**
@@ -117,7 +116,7 @@ class Key {
  *
  */
 class Injector {
-  /// The key that indentifies the default Injector binding.
+  // The key that indentifies the default Injector binding.
   static final Key _injectorKey = 
       new Key(reflectClass(Injector).qualifiedName);
   
@@ -127,11 +126,14 @@ class Injector {
   /// The name of this injector, if one was provided.
   final String name;
 
-  /// The identity of the bindings that must be overriden by this injector.
+  /*
+   *  The keys for which this injector should provide its own bindings instead
+   *  of using the bindings of it's parent.
+   */
   final List<Key> _newInstances;
   
-  /// The map of bindings and its indentities.
-  final Map<Key, Binding> _bindings = new Map<Key, Binding>();
+  // The map of bindings and its keys.
+  final Map<Key, _Binding> _bindings = new Map<Key, _Binding>();
   
   /**
    * Constructs a new Injector using [modules] to provide bindings. If [parent]
@@ -176,17 +178,15 @@ class Injector {
     var key = new Key(_typeName(type), annotatedWith: annotatedWith);
     
     if (_newInstances.contains(key) && !_bindings.containsKey(key)) {
-      _createBindingForType(type, annotatedWith: annotatedWith);
+      _createBindingForType(type, 
+          annotatedWith: annotatedWith, 
+          singleton: true);
     }
     
     return _getInstanceOf(key);
   }
   
-  Object _getInstanceOf(Key key) {
-    var binding = _getBinding(key);
-    
-    return binding.getInstance(this);
-  }
+  Object _getInstanceOf(key) => _getBinding(key).getInstance(this);
 
   /**
    * Execute the function [f], injecting any arguments.
@@ -198,7 +198,7 @@ class Injector {
     return Function.apply(f, parameters);
   }
   
-  Binding _getBinding(Key key) {
+  _Binding _getBinding(Key key) {
       var binding = _bindings.containsKey(key)
         ? _bindings[key]
         : (parent != null)
@@ -218,9 +218,8 @@ class Injector {
   List<Object> _resolveParameters(List<ParameterMirror> parameters) =>
       parameters.where((parameter) => !parameter.isOptional).map(
           (parameter) =>
-            _getInstanceOf(
-                new Key(parameter.type.qualifiedName, 
-                    annotatedWith: getBindingAnnotation(parameter)))
+            getInstanceOf((parameter.type as ClassMirror).reflectedType, 
+                annotatedWith: getBindingAnnotation(parameter))
       ).toList(growable: false);
 
   void _registerBindings(Type moduleType){
@@ -280,15 +279,23 @@ class Injector {
     });
   }
   
-  void _verifyCircularDependency(Binding binding, 
+  void _verifyCircularDependency(_Binding binding, 
                                   {List<Key> dependencyStack}) {
     if (dependencyStack == null) {
       dependencyStack = [];
     }
     
     if (dependencyStack.contains(binding.key)) {
+      dependencyStack.add(binding.key);
+      var stackInfo = dependencyStack.fold(null, (value, dependency) {
+        if (value == null) {
+          return dependency.toString();
+        } else {
+          return '$value =>\n$dependency';
+        }
+      });
       throw new ArgumentError(
-          'Circular dependency found on type ${binding.key.name}');
+          'Circular dependency found on type ${binding.key.name}:\n$stackInfo');
     }
     
     dependencyStack.add(binding.key);
@@ -335,7 +342,8 @@ class Injector {
   /**
    * Create a new constructor binding for [type]
    */
-  Key _createBindingForType(Type type, {Object annotatedWith}) {
+  _Binding _createBindingForType(Type type, 
+                            {Object annotatedWith, bool singleton: false}) {
     var classMirror = reflectClass(type);
     // Select appropriate constructor
     MethodMirror ctor = _selectConstructor(classMirror);
@@ -348,8 +356,12 @@ class Injector {
     
     var key = new Key.forType(type, annotatedWith: annotatedWith);
     
-    _bindings[key] = new _ConstructorBinding(key, ctor, null);
+    var binding =
+        new _ConstructorBinding(key, ctor, null, singleton: singleton);
     
+    _bindings[key] = binding;
+    
+    return binding;
   }
 
   String toString() => 'Injector: $name';

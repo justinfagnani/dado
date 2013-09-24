@@ -135,6 +135,9 @@ class Injector {
   // The map of bindings and its keys.
   final Map<Key, _Binding> _bindings = new Map<Key, _Binding>();
   
+  // The map of singleton instances
+  final Map<Key, Object> _singletons = new Map<Key, Object>();
+  
   /**
    * Constructs a new Injector using [modules] to provide bindings. If [parent]
    * is specificed, the injector is a child injector that inherits bindings
@@ -177,16 +180,33 @@ class Injector {
   Object getInstanceOf(Type type, {Object annotatedWith}) {
     var key = new Key(_typeName(type), annotatedWith: annotatedWith);
     
-    if (_newInstances.contains(key) && !_bindings.containsKey(key)) {
-      _createBindingForType(type, 
-          annotatedWith: annotatedWith, 
-          singleton: true);
-    }
-    
     return _getInstanceOf(key);
   }
   
-  Object _getInstanceOf(key) => _getBinding(key).getInstance(this);
+  Object _getInstanceOf(Key key) {
+    var binding = _getBinding(key);
+    
+    if (binding.singleton) {
+      return _getSingletonOf(key);
+    }
+        
+    return binding.getInstance(this);
+  }
+  
+  Object _getSingletonOf(Key key) {
+    if (parent == null ||
+        _newInstances.contains(key) ||
+        _bindings.containsKey(key)) {
+      
+      if (!_singletons.containsKey(key)) {
+        _singletons[key] = _getBinding(key).getInstance(this);
+      }
+      
+      return _singletons[key];
+    } else {
+      return parent._getSingletonOf(key);
+    }
+  }
 
   /**
    * Execute the function [f], injecting any arguments.
@@ -332,8 +352,9 @@ class Injector {
     }
         
     if (ctor == null) {
-      throw new ArgumentError("${m.qualifiedName} must have a no-arg "
-        "constructor or a single constructor");
+      throw new ArgumentError("${m.qualifiedName} musthave only "
+        "one constructor, a constructor annotated with @inject or no-args "
+        "constructor");
     }
     
     return ctor;
@@ -375,13 +396,12 @@ class _Binder {
   _Binder(this._injector, this._boundKey, this._boundToKey);
 
   Object get singleton {
-    var binding = _injector._getBinding(_boundKey);
-    if (binding.singletonInstance == null) {
-      binding.singletonInstance = _injector._getInstanceOf(
+    if (!_injector._singletons.containsKey(_boundKey)) {
+      _injector._singletons[_boundKey] =_injector._getInstanceOf(
           new Key(_boundToKey.name, annotatedWith: _boundToKey.annotation));
     }
     
-    return binding.singletonInstance;
+    return _injector._singletons[_boundKey];
   }
 
   Object newInstance() => _injector._getInstanceOf(
@@ -410,12 +430,11 @@ class ProvidedBinder extends _Binder {
   }
 
   Object get singleton {
-    var binding = _injector._getBinding(_boundKey);
-    if (binding.singletonInstance == null) {
-      binding.singletonInstance = _injector.callInjected(provider);
+    if (!_injector._singletons.containsKey(_boundKey)) {
+      _injector._singletons[_boundKey] = _injector.callInjected(provider);
     }
     
-    return binding.singletonInstance;
+    return _injector._singletons[_boundKey];
   }
 
   Object newInstance() => _injector.callInjected(provider);

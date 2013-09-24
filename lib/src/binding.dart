@@ -16,23 +16,12 @@ abstract class _Binding {
   final Key key;
   final InstanceMirror moduleMirror;
   final bool singleton;
-  Object singletonInstance;
   
   _Binding(Key this.key, InstanceMirror this.moduleMirror, 
       {bool this.singleton: false});
   
-  Object getInstance(Injector injector) {
-    if (singleton && singletonInstance != null)
-      return singletonInstance;
-    
-    var instance = buildInstance(injector);
-    
-    if (singleton) {
-      singletonInstance = instance;
-    }
-    
-    return instance;
-  }
+  Object getInstance(Injector injector) => 
+      buildInstance(injector);
   
   Object buildInstance(Injector injector);
   
@@ -41,13 +30,14 @@ abstract class _Binding {
 }
 
 class _InstanceBinding extends _Binding {
+  Object _instance;
   
   _InstanceBinding(Key key, Object instance, InstanceMirror moduleMirror) : 
     super(key, moduleMirror, singleton: true) {
-    singletonInstance = instance;
+    _instance = instance;
   }
   
-  Object buildInstance(Injector injector) => singletonInstance;
+  Object buildInstance(Injector injector) => _instance;
   
   Iterable<Key> getDependencies() => [];
   

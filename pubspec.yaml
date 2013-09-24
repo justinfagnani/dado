@@ -9,5 +9,7 @@ dependencies:
   args: any
   logging: any
   path: any
+  quiver: any
+
 dev_dependencies:
   unittest: any

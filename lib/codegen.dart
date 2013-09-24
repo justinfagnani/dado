@@ -2,7 +2,6 @@
 library codegen;
 
 import 'dart:io';
-import 'dart:collection' show SplayTreeMap;
 import 'package:args/args.dart';
 import 'package:analyzer_experimental/src/generated/ast.dart';
 import 'package:analyzer_experimental/src/generated/element.dart';
@@ -16,6 +15,7 @@ import 'package:analyzer_experimental/src/generated/sdk_io.dart'
 import 'package:analyzer_experimental/src/generated/source_io.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as path;
+import 'package:quiver/mirrors.dart';
 
 part 'codegen_utils.dart';
 part 'codegen_visitors.dart';
@@ -41,7 +41,7 @@ final ArgParser parser = new ArgParser()
 
 main(){
   setupLogger();
-  _logger = new Logger('BackgroundMain');
+  _logger = new Logger('codegen');
   var args = parser.parse(options.arguments);
   var dadoOptions = null;
   try {
@@ -73,15 +73,13 @@ main(){
   result.accept(new ToFormattedSourceVisitor(writer));
 
 
-  _logger.fine('------ Discovered Libraries -----');
-  _logger.fine(codeGen.libraries.toString());
   _logger.fine('------ Discovered Bindings -----');
   _logger.fine(codeGen.bindings.toString());
   _logger.fine('------ generated class using injector-----');
   _logger.fine(writer.toString());
 
   var generatedSource = new PrintStringWriter();
-  new InjectorGenerator(codeGen.libraries).run(generatedSource);
+  new InjectorGenerator(codeGen.imports, codeGen.bindings).run(generatedSource);
   _logger.fine('------ generated  injector -----');
   _logger.fine(generatedSource.toString());
 }
@@ -109,7 +107,7 @@ class CodeGen {
   final FileBasedSourceFactory _fileBasedSourceFactory;
   final DadoOptions _dadoOptions;
   final List<Object> bindings = [];
-  final Set<CompilationUnitElement> libraries = new Set();
+  final List<ImportDirective> imports = [];
   CompilationUnit _mutatedSource;
 
   CodeGen(this._dadoOptions, this._context, this._fileBasedSourceFactory);
@@ -130,44 +128,61 @@ class CodeGen {
         _fileBasedSourceFactory.getFileSouce(dadoLibraryPath);
     var dadoLibrary = _context.computeLibraryElement(dadoLibrarySource);
 
-    var injectorVisitor = new DadoASTVisitor(dadoLibrary);
+    var injectorVisitor = new DadoASTVisitor(_context, dadoLibrary, targetLibrary);
     _mutatedSource = resolvedTargetSource.accept(injectorVisitor)
         as CompilationUnit;
     bindings.addAll(injectorVisitor.bindings);
-    libraries.addAll(injectorVisitor.libraries);
+    imports.addAll(injectorVisitor.imports);
     return _mutatedSource;
   }
 }
 
 //TODO(bendera): convert to mustache templates.
-String handleImportStatement(String library) =>
-  '''import package:$library;''';
+String handleImportStatement(ImportDirective import) => "${import}";
 
-String handleClass(String className) =>
-'''
-class $className {
+String handleFactoryCascade(Object binding, PrintHandler printHandler) {
+  return "..addFactory(${printHandler(binding)})";
+}
 
-}''';
+String handleStringSingleton(FieldElement binding) {
+  return "${binding.type}, (DadoFactory i) => new ${binding.type}(), singleton:true";
+}
 
-
+typedef String PrintHandler(Object binding);
 class InjectorGenerator {
-  final Set<CompilationUnitElement> _libraries;
 
-  InjectorGenerator(this._libraries);
+  List<ImportDirective> _imports;
+  List<Object> _bindings;
+  InjectorGenerator(this._imports, this._bindings);
 
   void run(PrintWriter writer){
     _printDirectives(writer);
-    _printClassBody(writer);
+    _printFactoryCreation(writer);
   }
 
-  _printClassBody(PrintWriter writer) {
-    writer.println(handleClass('GeneratedInjector'));
+  _printFactoryCreation(PrintWriter writer) {
+    writer.println('DadoFactory factory = new DadoFactory()');
+    _bindings.forEach((Object binding) {
+      PrintHandler handler = _findHandler(binding);
+      if(handler != null) {
+        writer.println(handleFactoryCascade(binding, handler));
+      }
+    });
+  }
+
+  PrintHandler _findHandler(Object binding) {
+    if (implements(binding, FieldElement)) {
+      var fieldElem = binding as FieldElement;
+      print("${fieldElem.type}");
+      if (fieldElem.type.toString() == "String") {
+        print("${fieldElem.source}");
+        return (Object _) => handleStringSingleton(_ as FieldElement);
+      }
+    }
   }
 
   void _printDirectives(PrintWriter writer){
-    _libraries.map(_extractDirectivePath)
-      .map(handleImportStatement).forEach(writer.println);
-    writer.println('');
+    _imports.map(handleImportStatement).forEach(writer.println);
   }
 
   String _extractDirectivePath(CompilationUnitElement libraryPath) {

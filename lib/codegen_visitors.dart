@@ -11,9 +11,11 @@ class DadoASTVisitor extends ASTCloner {
   final ClassElement _injectorClass;
   final ClassElement _moduleClass;
   final List<Object> bindings = [];
-  final List<CompilationUnitElement> libraries = [];
+  final List<ImportDirective> imports = [];
+  final LibraryElement _targetLibrary;
+  final AnalysisContext _context;
 
-  DadoASTVisitor(LibraryElement _dadoLibrary)
+  DadoASTVisitor(this._context, LibraryElement _dadoLibrary, this._targetLibrary)
       : _injectorClass = _dadoLibrary.getType("Injector"),
         _moduleClass = _dadoLibrary.getType("Module");
 
@@ -29,14 +31,19 @@ class DadoASTVisitor extends ASTCloner {
     //TODO(bendera): Introduce caching for module and this injector in case
     //of revisit
     if (node.element.enclosingElement == _injectorClass) {
-      ModuleAstVisitor moduleVisitor = new ModuleAstVisitor(_moduleClass);
+      ModuleAstVisitor moduleVisitor = new ModuleAstVisitor(_moduleClass, _context, _targetLibrary);
       node.argumentList.arguments.accept(moduleVisitor);
       bindings.addAll(moduleVisitor.bindings);
-      libraries.addAll(moduleVisitor.libraries);
       return _transformInjectorConstruction(node);
     }
     return super.visitInstanceCreationExpression(node);
   }
+
+  ImportDirective visitImportDirective(ImportDirective node) {
+    imports.add(node);
+    return super.visitImportDirective(node);
+  }
+
 
   InstanceCreationExpression
     _transformInjectorConstruction(InstanceCreationExpression node) =>
@@ -65,13 +72,13 @@ class DadoASTVisitor extends ASTCloner {
  */
 class ModuleAstVisitor extends GeneralizingASTVisitor {
   final ClassElement _moduleClass;
+  final LibraryElement _targetLibrary;
   final BindingCollectionVisitor bindingCollector =
       new BindingCollectionVisitor();
-
+  final AnalysisContext _context;
   List<Object> get bindings => bindingCollector.bindings;
-  Set<CompilationUnitElement> get libraries => bindingCollector.libraries;
 
-  ModuleAstVisitor(this._moduleClass);
+  ModuleAstVisitor(this._moduleClass, this._context, this._targetLibrary);
 
   visitSimpleIdentifier(SimpleIdentifier node) {
     // TODO(abendera): node.element no longer exists on SimpleIdentifier. I
@@ -82,30 +89,32 @@ class ModuleAstVisitor extends GeneralizingASTVisitor {
       throw new ArgumentError('Argument: ${element.type} to Injector is not a '
           'subtype of Module');
     }
-    element.visitChildren(bindingCollector);
-    return super.visitSimpleIdentifier(node);
+    CompilationUnit unit = _context.resolveCompilationUnit(element.source, _targetLibrary);
+    var locator = new NodeLocator.con1(element.nameOffset);
+    locator.searchWithin(unit);
+    print(locator.foundNode);
   }
 }
-
 /**
  * Collects bindings defined as Fields, Methods, or Accessors.
  */
 class BindingCollectionVisitor extends GeneralizingElementVisitor<Object> {
   final List<Object> bindings = [];
-  final Set<CompilationUnitElement> libraries = new Set();
 
   visitFieldElement(FieldElement node) {
+    if (node.initializer != null)
+      print(node.initializer.localVariables);
     bindings.add(node);
-    libraries.add(node.library.definingCompilationUnit);
+    return super.visitFieldElement(node);
   }
 
   visitMethodElement(MethodElement node) {
     bindings.add(node);
-    libraries.add(node.library.definingCompilationUnit);
+    return super.visitMethodElement(node);
   }
 
   visitPropertyAccessorElement(PropertyAccessorElement node) {
     bindings.add(node);
-    libraries.add(node.library.definingCompilationUnit);
+    return super.visitPropertyAccessorElement(node);
   }
 }

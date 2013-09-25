@@ -81,10 +81,8 @@ class ModuleAstVisitor extends GeneralizingASTVisitor {
   ModuleAstVisitor(this._moduleClass, this._context, this._targetLibrary);
 
   visitSimpleIdentifier(SimpleIdentifier node) {
-    // TODO(abendera): node.element no longer exists on SimpleIdentifier. I
-    // don't know if the intent here is to use propagatedElement, staticElement,
-    // or bestElement.
-    var element = (node.bestElement as ClassElement);
+
+    var element = node.element != null ? node.element : node.staticElement;
     if (!element.type.isSubtypeOf(_moduleClass.type)) {
       throw new ArgumentError('Argument: ${element.type} to Injector is not a '
           'subtype of Module');

@@ -10,7 +10,7 @@ part of codegen;
 class DadoASTVisitor extends ASTCloner {
   final ClassElement _injectorClass;
   final ClassElement _moduleClass;
-  final List<Object> bindings = [];
+  final List<DiscoveredBinding> bindings = [];
   final List<ImportDirective> imports = [];
   final LibraryElement _targetLibrary;
   final AnalysisContext _context;
@@ -44,7 +44,6 @@ class DadoASTVisitor extends ASTCloner {
     return super.visitImportDirective(node);
   }
 
-
   InstanceCreationExpression
     _transformInjectorConstruction(InstanceCreationExpression node) =>
         new InstanceCreationExpression.full(
@@ -73,10 +72,8 @@ class DadoASTVisitor extends ASTCloner {
 class ModuleAstVisitor extends GeneralizingASTVisitor {
   final ClassElement _moduleClass;
   final LibraryElement _targetLibrary;
-  final BindingCollectionVisitor bindingCollector =
-      new BindingCollectionVisitor();
   final AnalysisContext _context;
-  List<Object> get bindings => bindingCollector.bindings;
+  List<DiscoveredBinding> bindings = [];
 
   ModuleAstVisitor(this._moduleClass, this._context, this._targetLibrary);
 
@@ -90,29 +87,84 @@ class ModuleAstVisitor extends GeneralizingASTVisitor {
     CompilationUnit unit = _context.resolveCompilationUnit(element.source, _targetLibrary);
     var locator = new NodeLocator.con1(element.nameOffset);
     locator.searchWithin(unit);
-    print(locator.foundNode);
+    var discoveredMembers = (locator.foundNode.parent as ClassDeclaration).members;
+    bindings.addAll(discoveredMembers.where(
+        (ClassMember m) => m is FieldDeclaration || m is MethodDeclaration)
+          .map((m) => makeDiscoveredBinding(m)));
   }
 }
-/**
- * Collects bindings defined as Fields, Methods, or Accessors.
- */
-class BindingCollectionVisitor extends GeneralizingElementVisitor<Object> {
-  final List<Object> bindings = [];
 
-  visitFieldElement(FieldElement node) {
-    if (node.initializer != null)
-      print(node.initializer.localVariables);
-    bindings.add(node);
-    return super.visitFieldElement(node);
+makeDiscoveredBinding(ClassMember m) => m is MethodDeclaration ?
+    new DiscoveredMethodBinding(m) : new DiscoveredFieldBinding(m);
+
+abstract class DiscoveredBinding {
+  String get type;
+  bool get isSingleton;
+  //should expose type, value if constant
+}
+
+class DiscoveredFieldBinding extends DiscoveredBinding {
+  final FieldDeclaration bindingDeclaration;
+  DiscoveredFieldBinding(this.bindingDeclaration) {
+    if (bindingDeclaration.fields.variables.length > 1) {
+      throw new IllegalArgumentException("Multiple Field Declrations supported,"
+          " ${bindingDeclaration.fields}");
+    }
+    if (_variableDeclaration.initializer == null) {
+      //TODO(bendera): A simple field like String a with no RHS is probably
+      //a mistake, should it be a warning or an error?
+    }
   }
 
-  visitMethodElement(MethodElement node) {
-    bindings.add(node);
-    return super.visitMethodElement(node);
+  String get type => bindingDeclaration.fields.type.toString();
+
+  bool get isSingleton => true;
+
+  Object get initializer => _variableDeclaration.initializer;
+
+  VariableDeclaration get _variableDeclaration =>
+      bindingDeclaration.fields.variables[0];
+
+  String toString() => "DiscoveredFieldBinding[Type: $type, Initializer: $initializer, singleton: $isSingleton]";
+
+  bool operator == (Object other) {
+    if (other is! DiscoveredFieldBinding)
+      return false;
+    DiscoveredFieldBinding otherBinding = other;
+    var t = initializer.toString();
+    var q = otherBinding.initializer.toString();
+    return type == otherBinding.type && isSingleton == otherBinding.isSingleton
+        && initializer.toString()  == otherBinding.initializer.toString();
   }
 
-  visitPropertyAccessorElement(PropertyAccessorElement node) {
-    bindings.add(node);
-    return super.visitPropertyAccessorElement(node);
+  int get hashCode {
+    int prime = 31;
+    int result = 1;
+    result = prime * result + ((type == null) ? 0 : type.hashCode);
+    result = prime * result + ((isSingleton == null) ? 0 : isSingleton.hashCode);
+    result = prime * result + ((initializer == null) ? 0 : initializer.hashCode);
+    return result;
   }
+}
+
+class DiscoveredMethodBinding extends DiscoveredBinding {
+  MethodDeclaration bindingDeclaration;
+  bool _isSingleton = false;
+  DiscoveredMethodBinding(this.bindingDeclaration) {
+    if (bindingDeclaration.body is ExpressionFunctionBody) {
+      if ((bindingDeclaration.body as ExpressionFunctionBody).expression is PropertyAccess) {
+        _isSingleton = ((bindingDeclaration.body as ExpressionFunctionBody).expression as PropertyAccess).propertyName.toString() == 'singleton';
+      }
+    }
+  }
+
+  //TODO
+  //* work out how to represent if this a sub class binding
+  //* how to deal with objects that take params in constructor
+
+  bool get isSingleton => _isSingleton;
+
+  String get type => bindingDeclaration.returnType.toString();
+
+  String toString() => "DiscoveredMethodBinding[Type: $type, singleton: $isSingleton]";
 }

@@ -56,9 +56,7 @@ class DadoFactory {
   Map<Key, Function> map = {};
   Map<Key, Object> singletons = {};
 
-  Object getInstanceOf(Type t) {
-    map[t](this);
-  }
+  Object getInstanceOf(Type t) => map[t](this);
 
   void addFactory(Type type, Object factory(DadoFactory injector),
       {annotatedWith, singleton: false}) {

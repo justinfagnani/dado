@@ -19,35 +19,33 @@ import 'package:path/path.dart' as path;
 main() {
   group('ModuleAstVisitor', (){
     final Options options = new Options();
-    final _dadoOptions = new DadoOptions(
-        extractSdkPathFromExecutablePath(options.executable),
-        absoluteNormalize('.'),
-        absoluteNormalize('test/sample_module.dart'));
     CodeGen _codeGen;
     CompilationUnit _result;
 
-    setUp((){
+    setupCodeGen(String testFile) {
+      var dadoOptions = new DadoOptions(
+          extractSdkPathFromExecutablePath(options.executable),
+          absoluteNormalize('.'),
+          absoluteNormalize(testFile));
       var dadoPackagePath = absoluteNormalize(
-          path.join(_dadoOptions.dadoRoot,'packages'));
+          path.join(dadoOptions.dadoRoot,'packages'));
 
       DartSdk _sdk = new DirectoryBasedDartSdk(
-          new JavaFile(_dadoOptions.dartSdkPath));
+          new JavaFile(dadoOptions.dartSdkPath));
 
-      AnalysisContext _context =
+      AnalysisContext context =
           AnalysisEngine.instance.createAnalysisContext();
 
-      _context.sourceFactory = new SourceFactory.con2(
+      context.sourceFactory = new SourceFactory.con2(
           [new DartUriResolver(_sdk), new PackageUriResolver(
           [new JavaFile(dadoPackagePath)])]);
 
-      _codeGen = new CodeGen(_dadoOptions, _context,
-          new FileBasedSourceFactory(_context));
+      return new CodeGen(dadoOptions, context,
+          new FileBasedSourceFactory(context));
+    }
 
-      _result = _codeGen.run();
-    });
-
-    //add tests for bogus dart sdk args
     test('Replaces Injector Constructor Invocation', () {
+      _result = setupCodeGen('test/sample_module.dart').run();
       var newConstructorMatcher =
           new InjectorConstructorMatcher('GeneratedInjector');
       var replacedConstructorMatcher =
@@ -60,12 +58,27 @@ main() {
       expect(replacedConstructorMatcher.found, false,
           reason: 'Original constructor statement found');
     });
+
+    test('correctly identifies field bindings',(){
+      CodeGen codeGen = setupCodeGen('test/field_bindings_module.dart');
+
+      expect(codeGen.bindings, isEmpty);
+
+      codeGen.run();
+
+      expect(codeGen.bindings, contains(
+          new SimpleDiscoveredFieldBinding("\"abbra\"", true, "String")));
+      expect(codeGen.bindings, contains(
+          new SimpleDiscoveredFieldBinding("true", true, "bool")));
+      expect(codeGen.bindings, contains(
+          new SimpleDiscoveredFieldBinding("12345", true, "int")));
+    });
   });
 
   group('DadoOptions', (){
     setUp((){});
 
-    //add tests for bogus dart sdk args
+    //TODO(bendera): add tests for bogus dart sdk args
     test('Empty Options Cause Exceptions', () {
       expect(() => new DadoOptions(
           null,
@@ -122,6 +135,15 @@ main() {
           throwsArgumentErrorWithMsg('must contain'));
     });
   });
+}
+
+class SimpleDiscoveredFieldBinding implements DiscoveredFieldBinding {
+  final Object initializer;
+  final bool isSingleton;
+  final String type;
+
+  SimpleDiscoveredFieldBinding(this.initializer, this.isSingleton, this.type);
+  FieldDeclaration get bindingDeclaration => null;
 }
 
 class InjectorConstructorMatcher extends GeneralizingASTVisitor {

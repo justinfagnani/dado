@@ -19,6 +19,7 @@ import 'package:quiver/mirrors.dart';
 
 part 'codegen_utils.dart';
 part 'codegen_visitors.dart';
+part 'codegen_printer.dart';
 
 const DART_SDK_PATH_FLAG = "dartSdk";
 const TARGET_PATH_FLAG = "targetPath";
@@ -72,24 +73,22 @@ main(){
   var writer = new PrintStringWriter();
   result.accept(new ToFormattedSourceVisitor(writer));
 
-
+//
   _logger.fine('------ Discovered Bindings -----');
-  _logger.fine(codeGen.bindings.toString());
-  _logger.fine('------ generated class using injector-----');
-  _logger.fine(writer.toString());
-
-  var generatedSource = new PrintStringWriter();
-  new InjectorGenerator(codeGen.imports, codeGen.bindings).run(generatedSource);
-  _logger.fine('------ generated  injector -----');
-  _logger.fine(generatedSource.toString());
+  codeGen.bindings.forEach((_) => _logger.fine(_.toString()));
+//  _logger.fine('------ generated class using injector-----');
+//  _logger.fine(writer.toString());
+//  var generatedSource = new PrintStringWriter();
+//  new InjectorGenerator(codeGen.imports, codeGen.bindings).run(generatedSource);
+//  _logger.fine('------ generated  injector -----');
+//  _logger.fine(generatedSource.toString());
 }
 
 void setupLogger() {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((LogRecord r) {
     StringBuffer sb = new StringBuffer();
-    sb
-        ..write(r.time.toString())
+    sb..write(r.time.toString())
         ..write(":")
         ..write(r.loggerName)
         ..write(":")
@@ -106,7 +105,7 @@ class CodeGen {
   final AnalysisContext _context;
   final FileBasedSourceFactory _fileBasedSourceFactory;
   final DadoOptions _dadoOptions;
-  final List<Object> bindings = [];
+  final List<DiscoveredBinding> bindings = [];
   final List<ImportDirective> imports = [];
   CompilationUnit _mutatedSource;
 
@@ -134,61 +133,6 @@ class CodeGen {
     bindings.addAll(injectorVisitor.bindings);
     imports.addAll(injectorVisitor.imports);
     return _mutatedSource;
-  }
-}
-
-//TODO(bendera): convert to mustache templates.
-String handleImportStatement(ImportDirective import) => "${import}";
-
-String handleFactoryCascade(Object binding, PrintHandler printHandler) {
-  return "..addFactory(${printHandler(binding)})";
-}
-
-String handleStringSingleton(FieldElement binding) {
-  return "${binding.type}, (DadoFactory i) => new ${binding.type}(), singleton:true";
-}
-
-typedef String PrintHandler(Object binding);
-class InjectorGenerator {
-
-  List<ImportDirective> _imports;
-  List<Object> _bindings;
-  InjectorGenerator(this._imports, this._bindings);
-
-  void run(PrintWriter writer){
-    _printDirectives(writer);
-    _printFactoryCreation(writer);
-  }
-
-  _printFactoryCreation(PrintWriter writer) {
-    writer.println('DadoFactory factory = new DadoFactory()');
-    _bindings.forEach((Object binding) {
-      PrintHandler handler = _findHandler(binding);
-      if(handler != null) {
-        writer.println(handleFactoryCascade(binding, handler));
-      }
-    });
-  }
-
-  PrintHandler _findHandler(Object binding) {
-    if (implements(binding, FieldElement)) {
-      var fieldElem = binding as FieldElement;
-      print("${fieldElem.type}");
-      if (fieldElem.type.toString() == "String") {
-        print("${fieldElem.source}");
-        return (Object _) => handleStringSingleton(_ as FieldElement);
-      }
-    }
-  }
-
-  void _printDirectives(PrintWriter writer){
-    _imports.map(handleImportStatement).forEach(writer.println);
-  }
-
-  String _extractDirectivePath(CompilationUnitElement libraryPath) {
-    //TODO(bendera): need to handle package imports and relative imports
-    var lastDir = path.split(path.dirname(libraryPath.source.fullName)).last;
-    return path.join(lastDir, path.basename(libraryPath.source.fullName));
   }
 }
 

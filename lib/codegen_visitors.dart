@@ -98,7 +98,8 @@ makeDiscoveredBinding(ClassMember m) => m is MethodDeclaration ?
     new DiscoveredMethodBinding(m) : new DiscoveredFieldBinding(m);
 
 abstract class DiscoveredBinding {
-  String get type;
+  String get implementedType;
+  String get concreteType;
   bool get isSingleton;
   //should expose type, value if constant
 }
@@ -116,7 +117,8 @@ class DiscoveredFieldBinding extends DiscoveredBinding {
     }
   }
 
-  String get type => bindingDeclaration.fields.type.toString();
+  String get implementedType => bindingDeclaration.fields.type.toString();
+  String get concreteType => implementedType;
 
   bool get isSingleton => true;
 
@@ -125,22 +127,21 @@ class DiscoveredFieldBinding extends DiscoveredBinding {
   VariableDeclaration get _variableDeclaration =>
       bindingDeclaration.fields.variables[0];
 
-  String toString() => "DiscoveredFieldBinding[Type: $type, Initializer: $initializer, singleton: $isSingleton]";
+  String toString() => "DiscoveredFieldBinding[ImplementedType: $implementedType, ConcreteType: $concreteType, Initializer: $initializer, singleton: $isSingleton]";
 
   bool operator == (Object other) {
     if (other is! DiscoveredFieldBinding)
       return false;
     DiscoveredFieldBinding otherBinding = other;
-    var t = initializer.toString();
-    var q = otherBinding.initializer.toString();
-    return type == otherBinding.type && isSingleton == otherBinding.isSingleton
+    return implementedType == otherBinding.implementedType && concreteType == otherBinding.concreteType && isSingleton == otherBinding.isSingleton
         && initializer.toString()  == otherBinding.initializer.toString();
   }
 
   int get hashCode {
     int prime = 31;
     int result = 1;
-    result = prime * result + ((type == null) ? 0 : type.hashCode);
+    result = prime * result + ((implementedType == null) ? 0 : implementedType.hashCode);
+    result = prime * result + ((concreteType == null) ? 0 : concreteType.hashCode);
     result = prime * result + ((isSingleton == null) ? 0 : isSingleton.hashCode);
     result = prime * result + ((initializer == null) ? 0 : initializer.hashCode);
     return result;
@@ -164,7 +165,47 @@ class DiscoveredMethodBinding extends DiscoveredBinding {
 
   bool get isSingleton => _isSingleton;
 
-  String get type => bindingDeclaration.returnType.toString();
+  String get implementedType => bindingDeclaration.returnType.toString();
 
-  String toString() => "DiscoveredMethodBinding[Type: $type, singleton: $isSingleton]";
+  //use visitors with names correspdoning to the type of binding.
+  String get concreteType {
+    if (bindingDeclaration.body is EmptyFunctionBody) {
+      return implementedType;
+    } else if (bindingDeclaration.body is ExpressionFunctionBody) {
+      var expressionBody = bindingDeclaration.body as ExpressionFunctionBody;
+      if (expressionBody.expression is PropertyAccess) {
+        var target = ((expressionBody.expression as PropertyAccess).target as MethodInvocation).argumentList.arguments[0];
+        if(target is SimpleIdentifier) {
+          return (target as SimpleIdentifier).element.toString();
+        } else if(target is FunctionExpression) {
+            return (target as FunctionExpression).element.returnType.toString();
+        }
+      } else if (expressionBody.expression is MethodInvocation) {
+        var target = expressionBody.expression as MethodInvocation;
+        if ((target.target as MethodInvocation).argumentList.arguments[0] is SimpleIdentifier) {
+          return ((target.target as MethodInvocation).argumentList.arguments[0] as SimpleIdentifier).element.toString();
+        } else if((target.target as MethodInvocation).argumentList.arguments[0] is FunctionExpression) {
+          return ((target.target as MethodInvocation).argumentList.arguments[0] as FunctionExpression).element.returnType.toString();
+        }
+      }
+    }
+  }
+
+  bool operator == (Object other) {
+    if (other is! DiscoveredMethodBinding)
+      return false;
+    DiscoveredFieldBinding otherBinding = other;
+    return implementedType == otherBinding.implementedType && concreteType == otherBinding.concreteType && isSingleton == otherBinding.isSingleton;
+  }
+
+  int get hashCode {
+    int prime = 31;
+    int result = 1;
+    result = prime * result + ((implementedType == null) ? 0 : implementedType.hashCode);
+    result = prime * result + ((concreteType == null) ? 0 : concreteType.hashCode);
+    result = prime * result + ((isSingleton == null) ? 0 : isSingleton.hashCode);
+    return result;
+  }
+
+  String toString() => "DiscoveredMethodBinding[ImplementedType: $implementedType, ConcreteType: $concreteType, singleton: $isSingleton]";
 }

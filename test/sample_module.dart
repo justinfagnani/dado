@@ -26,9 +26,10 @@ abstract class GeneratableModule1 extends Module {
   Foo get foo;
   Bar newBar();
   Baz get baz => bindTo(SubBaz).singleton;
+  //does this need a newInstance if it is the default?
   Fuzz fuzz() => bindTo(SubFuzz).newInstance();
   Snap snap() => bindTo(Snap).providedBy((Bar b) => new Snap(b)).singleton;
-
+  Resnap resnap() => bindTo(Resnap).providedBy((Bar b) => new Resnap(b)).newInstance();
 }
 
 class GeneratableModule2 extends Module {

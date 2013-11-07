@@ -135,13 +135,3 @@ Known Issues and Limitations
    Hierarchical modules might be enough.
  * Modules must extend `Module`. When mixins are better supported in Dart,
    `Module` can be mixed in instead.
-
-Star Fishing
-------------
-
-These are open issues that are blocking certain features od Dado:
-
- * http://dartbug.com/5897 Look up classes by name
- * http://dartbug.com/9395 Get qualified name from Type
- * http://dartbug.com/6614 reflective access to metadata
- * http://dartbug.com/11418 ParameterMirror.metadata throws Exception

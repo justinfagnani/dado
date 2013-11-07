@@ -3,6 +3,8 @@ Dado
 
 Dado is a [dependency injection][di] framework for [Dart][dart].
 
+[![Build Status](https://drone.io/github.com/dart-lang/dado/status.png)](https://drone.io/github.com/dart-lang/dado/latest)
+
 Dado attempts to have minimal set of features and a syntax that takes advantage
 of Dart, which makes it different from many other popular DI frameworks.
 

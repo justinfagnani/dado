@@ -42,10 +42,10 @@ bool implements(ClassMirror m, Symbol name, {bool useSimple: false}) {
 DeclarationMirror getMemberMirror(ClassMirror classMirror, Symbol name) {
   assert(classMirror != null);
   assert(name != null);
-  if (classMirror.members[name] != null) {
-    return classMirror.members[name];
+  if (classMirror.instanceMembers[name] != null) {
+    return classMirror.instanceMembers[name];
   }
-  if (hasSuperclass(classMirror)) {
+  if (classMirror.superclass != null) {
     var memberMirror = getMemberMirror(classMirror.superclass, name);
     if (memberMirror != null) {
       return memberMirror;
@@ -60,18 +60,7 @@ DeclarationMirror getMemberMirror(ClassMirror classMirror, Symbol name) {
   return null;
 }
 
-/**
- * Work-around for http://dartbug.com/5794
- */
-bool hasSuperclass(ClassMirror classMirror) {
-  ClassMirror superclass = classMirror.superclass;
-  return (superclass != null)
-      && (superclass.qualifiedName != "dart.core.Object");
-}
-
 Object getBindingAnnotation (DeclarationMirror declarationMirror) {
-// There's some bug with requesting metadata from certain variable mirrors
-  // that causes a UnimplementedError. See dartbug.com/11418
   List<InstanceMirror> metadata;
   metadata = declarationMirror.metadata;
   
@@ -84,4 +73,15 @@ Object getBindingAnnotation (DeclarationMirror declarationMirror) {
   }
   
   return null;
+}
+
+List<MethodMirror> getConstructorsMirrors(ClassMirror classMirror) {
+  var constructors = new List<MethodMirror>();
+  
+  classMirror.declarations.values.forEach((declaration) {
+    if ((declaration is MethodMirror) && (declaration.isConstructor))
+        constructors.add(declaration);
+  });
+  
+  return constructors;
 }

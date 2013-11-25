@@ -59,7 +59,6 @@ library dado;
 
 import 'dart:mirrors';
 import 'package:inject/inject.dart';
-import 'package:meta/meta.dart';
 import 'src/mirror_utils.dart';
 
 part 'src/binding.dart';
@@ -246,7 +245,7 @@ class Injector {
     var classMirror = reflectClass(moduleType);
     var moduleMirror = classMirror.newInstance(const Symbol(''), [], null);
 
-    classMirror.members.values.forEach((member) {
+    classMirror.declarations.values.forEach((member) {
       if (member is VariableMirror) {
         // Variables define "to instance" bindings
         var instance = moduleMirror.getField(member.simpleName).reflectee;
@@ -332,7 +331,7 @@ class Injector {
   }
   
   MethodMirror _selectConstructor(ClassMirror m) {
-    Iterable<MethodMirror> constructors = m.constructors.values;
+    Iterable<MethodMirror> constructors = getConstructorsMirrors(m);
     // Choose contructor using @inject
     MethodMirror ctor = constructors.firstWhere(
       (c) => c.metadata.any(
@@ -352,7 +351,7 @@ class Injector {
     }
         
     if (ctor == null) {
-      throw new ArgumentError("${m.qualifiedName} musthave only "
+      throw new ArgumentError("${m.qualifiedName} must have only "
         "one constructor, a constructor annotated with @inject or no-args "
         "constructor");
     }

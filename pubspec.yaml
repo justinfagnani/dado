@@ -5,7 +5,7 @@ description: An experimental dependency injection container for Dart
 homepage: http://dart-lang.github.io/dado/
 documentation: http://dart-lang.github.io/dado/docs/dado.html
 dependencies:
-  analyzer_experimental: any
+  analyzer: any
   args: any
   logging: any
   path: any

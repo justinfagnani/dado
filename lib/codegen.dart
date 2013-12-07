@@ -1,24 +1,26 @@
 //Copyright Google Inc. 2013
 library codegen;
 
+import 'dart:collection';
 import 'dart:io';
 import 'package:args/args.dart';
-import 'package:analyzer_experimental/src/generated/ast.dart';
-import 'package:analyzer_experimental/src/generated/element.dart';
-import 'package:analyzer_experimental/src/generated/engine.dart' hide Logger;
-import 'package:analyzer_experimental/src/generated/java_io.dart';
-import 'package:analyzer_experimental/src/generated/java_core.dart';
-import 'package:analyzer_experimental/src/generated/parser.dart';
-import 'package:analyzer_experimental/src/generated/scanner.dart';
-import 'package:analyzer_experimental/src/generated/sdk_io.dart'
+import 'package:analyzer/src/generated/ast.dart';
+import 'package:analyzer/src/generated/element.dart';
+import 'package:analyzer/src/generated/engine.dart' hide Logger;
+import 'package:analyzer/src/generated/java_io.dart';
+import 'package:analyzer/src/generated/java_core.dart';
+import 'package:analyzer/src/generated/scanner.dart';
+import 'package:analyzer/src/generated/sdk_io.dart'
   show DirectoryBasedDartSdk;
-import 'package:analyzer_experimental/src/generated/source_io.dart';
+import 'package:analyzer/src/generated/source_io.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as path;
 import 'package:quiver/mirrors.dart';
+import 'package:unmodifiable_collection/unmodifiable_collection.dart';
 
 part 'codegen_utils.dart';
 part 'codegen_visitors.dart';
+part 'codegen_bindings.dart';
 part 'codegen_printer.dart';
 
 const DART_SDK_PATH_FLAG = "dartSdk";
@@ -26,11 +28,10 @@ const TARGET_PATH_FLAG = "targetPath";
 const DADO_ROOT_FLAG = "dadoRoot";
 
 Logger _logger;
-final Options options = new Options();
 final ArgParser parser = new ArgParser()
       ..addOption(
           DART_SDK_PATH_FLAG,
-          defaultsTo: extractSdkPathFromExecutablePath(options.executable),
+          defaultsTo: extractSdkPathFromExecutablePath(Platform.executable),
           help: 'Required, the path to your Dart SDK')
       ..addOption(
           DADO_ROOT_FLAG,
@@ -40,49 +41,39 @@ final ArgParser parser = new ArgParser()
           help: 'Required, the path to the source you'
               ' want to generate dado injectors for.');
 
-main(){
+main(List<String> arguments){
   setupLogger();
   _logger = new Logger('codegen');
-  var args = parser.parse(options.arguments);
+  var args = parser.parse(arguments);
   var dadoOptions = null;
   try {
       dadoOptions = new DadoOptions(args[DART_SDK_PATH_FLAG],
           args[DADO_ROOT_FLAG], args[TARGET_PATH_FLAG]);
   } catch (e){
-    _logger.severe(e);
+    _logger.severe(e.toString());
     _logger.info('Usage: ${parser.getUsage()}');
     return false;
   }
 
   _logger.info('Running with options: $dadoOptions');
-  var dadoPackagePath = absoluteNormalize(path.join(dadoOptions.dadoRoot,
-                                                    'packages'));
-  var sdk = new DirectoryBasedDartSdk(new JavaFile(dadoOptions.dartSdkPath));
 
-  var sourceFactory = new SourceFactory.con2([new DartUriResolver(sdk),
-      new PackageUriResolver([new JavaFile(dadoPackagePath)])]);
+  var codeGen = new CodeGen(dadoOptions);
+  codeGen.run();
 
-  var context = AnalysisEngine.instance.createAnalysisContext()
-      ..sourceFactory = sourceFactory;
+//  var writer = new PrintStringWriter();
+//  result.accept(new ToFormattedSourceVisitor(writer));
 
-  var codeGen = new CodeGen(dadoOptions, context,
-      new FileBasedSourceFactory(context));
-
-  var result = codeGen.run();
-
-  var writer = new PrintStringWriter();
-  result.accept(new ToFormattedSourceVisitor(writer));
-
-//
   _logger.fine('------ Discovered Bindings -----');
   codeGen.bindings.forEach((_) => _logger.fine(_.toString()));
 //  _logger.fine('------ generated class using injector-----');
 //  _logger.fine(writer.toString());
-//  var generatedSource = new PrintStringWriter();
-//  new InjectorGenerator(codeGen.imports, codeGen.bindings).run(generatedSource);
-//  _logger.fine('------ generated  injector -----');
-//  _logger.fine(generatedSource.toString());
+
+  var generatedSource = new PrintStringWriter();
+  new InjectorGenerator(codeGen.imports, codeGen.bindings).run(generatedSource);
+  _logger.fine('------ generated  injector -----');
+  _logger.fine(generatedSource.toString());
 }
+
 
 void setupLogger() {
   Logger.root.level = Level.ALL;
@@ -102,37 +93,68 @@ void setupLogger() {
 }
 
 class CodeGen {
-  final AnalysisContext _context;
-  final FileBasedSourceFactory _fileBasedSourceFactory;
   final DadoOptions _dadoOptions;
   final List<DiscoveredBinding> bindings = [];
   final List<ImportDirective> imports = [];
-  CompilationUnit _mutatedSource;
+  CompilationUnit mutatedSource;
 
-  CodeGen(this._dadoOptions, this._context, this._fileBasedSourceFactory);
+  CodeGen(this._dadoOptions);
 
-  CompilationUnit run() {
+  void run() {
+    var dadoPackagePath = absoluteNormalize(path.join(_dadoOptions.dadoRoot,
+    'packages'));
+    var targetPackagePath = absoluteNormalize('/Users/bendera/Development/code/usesdado/packages/');
+    var sdk = new DirectoryBasedDartSdk(new JavaFile(_dadoOptions.dartSdkPath));
+
+    var sourceFactory = new SourceFactory.con2([new DartUriResolver(sdk),
+                                                new PackageUriResolver([new JavaFile(dadoPackagePath), new JavaFile(targetPackagePath)])]);
+
+    var context = AnalysisEngine.instance.createAnalysisContext()
+        ..sourceFactory = sourceFactory;
+    var fileBasedSourceFactory = new FileBasedSourceFactory(context);
     var targetSourcePath = path.normalize(
         path.absolute(_dadoOptions.targetSourcePath));
     var targetLibrarySource =
-        _fileBasedSourceFactory.getFileSouce(targetSourcePath);
-    var targetLibrary = _context.computeLibraryElement(targetLibrarySource);
-    var resolvedTargetSource = _context.resolveCompilationUnit(
+        fileBasedSourceFactory.getFileSouce(targetSourcePath);
+    var targetLibrary = context.computeLibraryElement(targetLibrarySource);
+    var resolvedTargetCompilationUnit = context.resolveCompilationUnit(
         targetLibrarySource, targetLibrary);
-
 
     var dadoLibraryPath = absoluteNormalize(
         path.join(_dadoOptions.dadoRoot,'lib','dado.dart'));
     var dadoLibrarySource =
-        _fileBasedSourceFactory.getFileSouce(dadoLibraryPath);
-    var dadoLibrary = _context.computeLibraryElement(dadoLibrarySource);
+        fileBasedSourceFactory.getFileSouce(dadoLibraryPath);
+    var dadoLibrary = context.computeLibraryElement(dadoLibrarySource);
+    var injectorClass = dadoLibrary.getType("Injector");
+    var moduleClass = dadoLibrary.getType("Module");
 
-    var injectorVisitor = new DadoASTVisitor(_context, dadoLibrary, targetLibrary);
-    _mutatedSource = resolvedTargetSource.accept(injectorVisitor)
-        as CompilationUnit;
+    var injectorVisitor = new DadoASTVisitor(context, injectorClass, moduleClass);
+    resolvedTargetCompilationUnit.accept(injectorVisitor);
     bindings.addAll(injectorVisitor.bindings);
     imports.addAll(injectorVisitor.imports);
-    return _mutatedSource;
+    _checkForUnboundTypes();
+  }
+
+  void _checkForUnboundTypes() {
+    Set<Type2> boundTypes = new Set();
+    Set<Type2> concreteTypes = new Set();
+    Set<Type2> transitiveDeps = new Set();
+
+    bindings.where(
+        (DiscoveredBinding b) => b is DiscoveredMethodBinding)
+          .forEach((DiscoveredMethodBinding binding) {
+            boundTypes.add(binding.implementedType);
+            concreteTypes.add(binding.concreteType);
+            transitiveDeps.addAll(binding.transitiveDependencies);
+          });
+    var unboundDeps = transitiveDeps.difference(boundTypes);
+    if (unboundDeps.length > 0) {
+      throw new IllegalArgumentException("One or more types found in your application was not bound: $unboundDeps");
+    }
+    var unboundConcreteTypes = concreteTypes.difference(boundTypes);
+    if (unboundConcreteTypes.length > 0) {
+      throw new IllegalArgumentException("One or more types found in your application was not bound: $unboundConcreteTypes");
+    }
   }
 }
 
@@ -152,11 +174,8 @@ class FileBasedSourceFactory {
  * Provides simple data structure for Dado command line options.
  */
 class DadoOptions {
-
   final String dadoRoot;
-
   final String targetSourcePath;
-
   final String dartSdkPath;
 
   DadoOptions(String dartSdkPath, String dadoRoot, String targetSourcePath)

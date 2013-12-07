@@ -1,9 +1,9 @@
 library sample;
 class Snap{
-  Snap(Bar b);
+  Snap(Bar b, Foo f);
 }
 class Resnap{
-  Resnap(Bar b);
+  Resnap(Bar b, Snap s);
 }
 class Foo{}
 class Fuzz{}

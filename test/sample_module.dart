@@ -28,29 +28,34 @@ abstract class GeneratableModule1 extends Module {
   Baz get baz => bindTo(SubBaz).singleton;
   //does this need a newInstance if it is the default?
   Fuzz fuzz() => bindTo(SubFuzz).newInstance();
-  Snap snap() => bindTo(Snap).providedBy((Bar b) => new Snap(b)).singleton;
-  Resnap resnap() => bindTo(Resnap).providedBy((Bar b) => new Resnap(b)).newInstance();
+  Snap snap() => bindTo(Snap).providedBy((Bar b, Foo f) => new Snap(b, f)).singleton;
+  Resnap resnap() => bindTo(Resnap).providedBy((Bar b, Snap s) => new Resnap(b, s)).newInstance();
 }
 
-class GeneratableModule2 extends Module {
+abstract class GeneratableModule2 extends Module {
   GeneratableModule2() : super();
   bool aBool = true;
   Qux newQux();
+  SubFuzz newSubFuzz();
+  SubBaz newSubBaz();
 }
 
 DadoFactory factory = new DadoFactory()
-  ..addFactory(Snap, (DadoFactory i) {
-    ((Bar b) => new Snap(b))(i.getInstanceOf(Bar) as Bar);
-   }, singleton:true)
   ..addFactory(String, (DadoFactory i) => "abbra", singleton:true)
-  ..addFactory(bool, (DadoFactory i) => true, singleton:true)
-  ..addFactory(SubBaz, (DadoFactory i) => new SubBaz(i.getInstanceOf(Qux)))
-  ..addFactory(Baz, (DadoFactory i) => i.getInstanceOf(SubBaz), singleton:true)
-  ..addFactory(SubFuzz, (DadoFactory i) => new SubFuzz())
-  ..addFactory(Fuzz, (DadoFactory i) => i.getInstanceOf(SubFuzz))
-  ..addFactory(Bar, (DadoFactory i) => new Bar())
   ..addFactory(Foo, (DadoFactory i) => new Foo(), singleton:true)
-  ..addFactory(Qux, (DadoFactory i) => new Qux(i.getInstanceOf(Foo) as Foo));
+  ..addFactory(Bar, (DadoFactory i) => new Bar())
+  ..addFactory(Baz, (DadoFactory i) => i.getInstanceOf(SubBaz), singleton:true)
+  ..addFactory(Fuzz, (DadoFactory i) => i.getInstanceOf(SubFuzz))
+  ..addFactory(Snap, (DadoFactory i) {
+    ((Bar b, Foo f) => new Snap(b, f))(i.getInstanceOf(Bar) as Bar, i.getInstanceOf(Foo) as Foo);
+   }, singleton:true)
+   ..addFactory(Resnap, (DadoFactory i) {
+    ((Bar b, Snap s) => new Resnap(b, s))(i.getInstanceOf(Bar) as Bar, i.getInstanceOf(Snap) as Snap);
+   })
+  ..addFactory(bool, (DadoFactory i) => true, singleton:true)
+  ..addFactory(Qux, (DadoFactory i) => new Qux(i.getInstanceOf(Foo) as Foo))
+  ..addFactory(SubFuzz, (DadoFactory i) => new SubFuzz())
+  ..addFactory(SubBaz, (DadoFactory i) => new SubBaz(i.getInstanceOf(Qux)));
 
 
 class DadoFactory {

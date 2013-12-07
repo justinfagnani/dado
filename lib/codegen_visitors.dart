@@ -1,6 +1,5 @@
 part of codegen;
 
-
 /**
  * Visits a target source file and preforms the following tasks:
  * * Replaces imports of injector.dart with generated_injector.dart
@@ -12,12 +11,8 @@ class DadoASTVisitor extends ASTCloner {
   final ClassElement _moduleClass;
   final List<DiscoveredBinding> bindings = [];
   final List<ImportDirective> imports = [];
-  final LibraryElement _targetLibrary;
   final AnalysisContext _context;
-
-  DadoASTVisitor(this._context, LibraryElement _dadoLibrary, this._targetLibrary)
-      : _injectorClass = _dadoLibrary.getType("Injector"),
-        _moduleClass = _dadoLibrary.getType("Module");
+  DadoASTVisitor(this._context, this._injectorClass, this._moduleClass);
 
   /**
    * Finds invocations of Injector constructor and builds a new
@@ -30,11 +25,12 @@ class DadoASTVisitor extends ASTCloner {
       InstanceCreationExpression node) {
     //TODO(bendera): Introduce caching for module and this injector in case
     //of revisit
-    if (node.element.enclosingElement == _injectorClass) {
-      ModuleAstVisitor moduleVisitor = new ModuleAstVisitor(_moduleClass, _context, _targetLibrary);
+    if (node.staticElement.enclosingElement == _injectorClass) {
+      ModuleAstVisitor moduleVisitor = new ModuleAstVisitor(_moduleClass, _context);
       node.argumentList.arguments.accept(moduleVisitor);
       bindings.addAll(moduleVisitor.bindings);
-      return _transformInjectorConstruction(node);
+      //TODO(bendera): when we are ready, bring in code transform.
+      //return _transformInjectorConstruction(node);
     }
     return super.visitInstanceCreationExpression(node);
   }
@@ -71,141 +67,37 @@ class DadoASTVisitor extends ASTCloner {
  */
 class ModuleAstVisitor extends GeneralizingASTVisitor {
   final ClassElement _moduleClass;
-  final LibraryElement _targetLibrary;
   final AnalysisContext _context;
-  List<DiscoveredBinding> bindings = [];
+  final Set<DiscoveredBinding> bindings = new Set();
+  final Set<Type2> boundTypes = new Set();
 
-  ModuleAstVisitor(this._moduleClass, this._context, this._targetLibrary);
+  ModuleAstVisitor(this._moduleClass, this._context);
 
   visitSimpleIdentifier(SimpleIdentifier node) {
-
-    var element = node.element != null ? node.element : node.staticElement;
+    var element = node.staticElement;
     if (!element.type.isSubtypeOf(_moduleClass.type)) {
       throw new ArgumentError('Argument: ${element.type} to Injector is not a '
           'subtype of Module');
     }
-    CompilationUnit unit = _context.resolveCompilationUnit(element.source, _targetLibrary);
+    //having found a use of a Module we need to build and traverse its AST, which is different than the
+    //AST where it was used.
     var locator = new NodeLocator.con1(element.nameOffset);
-    locator.searchWithin(unit);
+    locator.searchWithin(_context.resolveCompilationUnit(element.source, element.library));
+
+    //TODO(bendera): what should we do if no node is found?
     var discoveredMembers = (locator.foundNode.parent as ClassDeclaration).members;
-    bindings.addAll(discoveredMembers.where(
+    Iterable<DiscoveredBinding> discoveredBindings = discoveredMembers.where(
         (ClassMember m) => m is FieldDeclaration || m is MethodDeclaration)
-          .map((m) => makeDiscoveredBinding(m)));
+          .map((m) {
+            DiscoveredBinding binding = makeDiscoveredBinding(m);
+            if (!boundTypes.contains(binding.implementedType)) {
+              boundTypes.add(binding.implementedType);
+              return binding;
+            } else {
+              throw new ArgumentError('Duplicate binding for type: ${binding.implementedType}');
+            }
+          });
+    bindings.addAll(discoveredBindings);
+    //----- detect circular deps here & do not allow!
   }
-}
-
-makeDiscoveredBinding(ClassMember m) => m is MethodDeclaration ?
-    new DiscoveredMethodBinding(m) : new DiscoveredFieldBinding(m);
-
-abstract class DiscoveredBinding {
-  String get implementedType;
-  String get concreteType;
-  bool get isSingleton;
-  //should expose type, value if constant
-}
-
-class DiscoveredFieldBinding extends DiscoveredBinding {
-  final FieldDeclaration bindingDeclaration;
-  DiscoveredFieldBinding(this.bindingDeclaration) {
-    if (bindingDeclaration.fields.variables.length > 1) {
-      throw new IllegalArgumentException("Multiple Field Declrations supported,"
-          " ${bindingDeclaration.fields}");
-    }
-    if (_variableDeclaration.initializer == null) {
-      //TODO(bendera): A simple field like String a with no RHS is probably
-      //a mistake, should it be a warning or an error?
-    }
-  }
-
-  String get implementedType => bindingDeclaration.fields.type.toString();
-  String get concreteType => implementedType;
-
-  bool get isSingleton => true;
-
-  Object get initializer => _variableDeclaration.initializer;
-
-  VariableDeclaration get _variableDeclaration =>
-      bindingDeclaration.fields.variables[0];
-
-  String toString() => "DiscoveredFieldBinding[ImplementedType: $implementedType, ConcreteType: $concreteType, Initializer: $initializer, singleton: $isSingleton]";
-
-  bool operator == (Object other) {
-    if (other is! DiscoveredFieldBinding)
-      return false;
-    DiscoveredFieldBinding otherBinding = other;
-    return implementedType == otherBinding.implementedType && concreteType == otherBinding.concreteType && isSingleton == otherBinding.isSingleton
-        && initializer.toString()  == otherBinding.initializer.toString();
-  }
-
-  int get hashCode {
-    int prime = 31;
-    int result = 1;
-    result = prime * result + ((implementedType == null) ? 0 : implementedType.hashCode);
-    result = prime * result + ((concreteType == null) ? 0 : concreteType.hashCode);
-    result = prime * result + ((isSingleton == null) ? 0 : isSingleton.hashCode);
-    result = prime * result + ((initializer == null) ? 0 : initializer.hashCode);
-    return result;
-  }
-}
-
-class DiscoveredMethodBinding extends DiscoveredBinding {
-  MethodDeclaration bindingDeclaration;
-  bool _isSingleton = false;
-  DiscoveredMethodBinding(this.bindingDeclaration) {
-    if (bindingDeclaration.body is ExpressionFunctionBody) {
-      if ((bindingDeclaration.body as ExpressionFunctionBody).expression is PropertyAccess) {
-        _isSingleton = ((bindingDeclaration.body as ExpressionFunctionBody).expression as PropertyAccess).propertyName.toString() == 'singleton';
-      }
-    }
-  }
-
-  //TODO
-  //* work out how to represent if this a sub class binding
-  //* how to deal with objects that take params in constructor
-
-  bool get isSingleton => _isSingleton;
-
-  String get implementedType => bindingDeclaration.returnType.toString();
-
-  //use visitors with names correspdoning to the type of binding.
-  String get concreteType {
-    if (bindingDeclaration.body is EmptyFunctionBody) {
-      return implementedType;
-    } else if (bindingDeclaration.body is ExpressionFunctionBody) {
-      var expressionBody = bindingDeclaration.body as ExpressionFunctionBody;
-      if (expressionBody.expression is PropertyAccess) {
-        var target = ((expressionBody.expression as PropertyAccess).target as MethodInvocation).argumentList.arguments[0];
-        if(target is SimpleIdentifier) {
-          return (target as SimpleIdentifier).element.toString();
-        } else if(target is FunctionExpression) {
-            return (target as FunctionExpression).element.returnType.toString();
-        }
-      } else if (expressionBody.expression is MethodInvocation) {
-        var target = expressionBody.expression as MethodInvocation;
-        if ((target.target as MethodInvocation).argumentList.arguments[0] is SimpleIdentifier) {
-          return ((target.target as MethodInvocation).argumentList.arguments[0] as SimpleIdentifier).element.toString();
-        } else if((target.target as MethodInvocation).argumentList.arguments[0] is FunctionExpression) {
-          return ((target.target as MethodInvocation).argumentList.arguments[0] as FunctionExpression).element.returnType.toString();
-        }
-      }
-    }
-  }
-
-  bool operator == (Object other) {
-    if (other is! DiscoveredMethodBinding)
-      return false;
-    DiscoveredFieldBinding otherBinding = other;
-    return implementedType == otherBinding.implementedType && concreteType == otherBinding.concreteType && isSingleton == otherBinding.isSingleton;
-  }
-
-  int get hashCode {
-    int prime = 31;
-    int result = 1;
-    result = prime * result + ((implementedType == null) ? 0 : implementedType.hashCode);
-    result = prime * result + ((concreteType == null) ? 0 : concreteType.hashCode);
-    result = prime * result + ((isSingleton == null) ? 0 : isSingleton.hashCode);
-    return result;
-  }
-
-  String toString() => "DiscoveredMethodBinding[ImplementedType: $implementedType, ConcreteType: $concreteType, singleton: $isSingleton]";
 }

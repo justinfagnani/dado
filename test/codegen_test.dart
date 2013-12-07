@@ -2,29 +2,27 @@
 library codegen_test;
 
 import 'dart:io';
-
 import 'package:unittest/unittest.dart';
-import 'package:analyzer_experimental/src/generated/java_io.dart';
-import 'package:analyzer_experimental/src/generated/source_io.dart';
-import 'package:analyzer_experimental/src/generated/sdk.dart' show DartSdk;
-import 'package:analyzer_experimental/src/generated/sdk_io.dart'
+import 'package:analyzer/src/generated/java_io.dart';
+import 'package:analyzer/src/generated/source_io.dart';
+import 'package:analyzer/src/generated/sdk.dart' show DartSdk;
+import 'package:analyzer/src/generated/sdk_io.dart'
   show DirectoryBasedDartSdk;
-import 'package:analyzer_experimental/src/generated/engine.dart';
-import 'package:analyzer_experimental/src/generated/ast.dart';
-import 'package:analyzer_experimental/src/generated/scanner.dart';
+import 'package:analyzer/src/generated/engine.dart';
+import 'package:analyzer/src/generated/ast.dart';
+import 'package:analyzer/src/generated/scanner.dart';
 import 'package:dado/codegen.dart';
 import 'package:path/path.dart' as path;
 
 //These tests currently expect to be run from the top-level dado directory.
 main() {
   group('ModuleAstVisitor', (){
-    final Options options = new Options();
     CodeGen _codeGen;
     CompilationUnit _result;
 
     setupCodeGen(String testFile) {
       var dadoOptions = new DadoOptions(
-          extractSdkPathFromExecutablePath(options.executable),
+          extractSdkPathFromExecutablePath(Platform.executable),
           absoluteNormalize('.'),
           absoluteNormalize(testFile));
       var dadoPackagePath = absoluteNormalize(

@@ -398,3 +398,6 @@ abstract class Module {
         boundToMirror);
   }
 }
+
+abstract class BaseModule extends Module {
+}

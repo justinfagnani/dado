@@ -3,21 +3,27 @@ part of codegen;
 //TODO(bendera): convert to mustache templates.
 String handleImportStatement(ImportDirective import) => "${import}";
 
-String handleFactoryCascade(DiscoveredBinding binding, PrintHandler printHandler) {
+String handleFactoryCascade(DiscoveredBinding binding,
+                            PrintHandler printHandler) {
   return "..addFactory(${printHandler(binding)})";
 }
 
 String handleStringSingleton(DiscoveredFieldBinding binding) {
-  return "${binding.concreteType}, (DadoFactory i) => ${binding.initializer}, singleton:true";
+  return "${binding.concreteType}, (DadoFactory i) => ${binding.initializer}, "
+    "singleton:true";
 }
 
 String handleSimpleConcreteType(DiscoveredMethodBinding binding) {
   if(binding.constructorArgs.length == 0) {
-    return "${binding.implementedType}, (DadoFactory i) => new ${binding.implementedType}(), singleton:${binding.isSingleton}";
+    return "${binding.implementedType}, (DadoFactory i) => new "
+      "${binding.implementedType}(), singleton:${binding.isSingleton}";
   }
   String constructorArgs =
-      binding.constructorArgs.map((ParameterElement el) => "i.getInstanceOf(${el.type.name}) as ${el.type.name}").join(', ');
-  return "${binding.implementedType},  (DadoFactory i) => new ${binding.concreteType}($constructorArgs), singleton:true";
+      binding.constructorArgs.map((ParameterElement el) =>
+          "i.getInstanceOf(${el.type.name}) as ${el.type.name}").join(', ');
+
+  return "${binding.implementedType},  (DadoFactory i) => "
+      "new ${binding.concreteType}($constructorArgs), singleton:true";
 }
 
 String handleComplexInitializer(DiscoveredMethodBinding binding) {
@@ -25,14 +31,17 @@ String handleComplexInitializer(DiscoveredMethodBinding binding) {
   String constructorArgs =
     binding.constructorArgs.map((ParameterElement el) => el.name).join(', ');
   String instantiationArgs =
-      binding.constructorArgs.map((ParameterElement el) => "i.getInstanceOf(${el.type.name}) as ${el.type.name}").join(', ');
+      binding.constructorArgs.map((ParameterElement el) =>
+          "i.getInstanceOf(${el.type.name}) as ${el.type.name}").join(', ');
   return "${binding.implementedType},  (DadoFactory i) {\n"
-    " (($typedConstructorArgs) => new ${binding.concreteType}($constructorArgs))($instantiationArgs);\n"
+    " (($typedConstructorArgs) => "
+    "new ${binding.concreteType}($constructorArgs))($instantiationArgs);\n"
     "}, singleton:true";
 }
 
 String handleSubtype(DiscoveredMethodBinding binding) {
-  return "${binding.implementedType}, (DadoFactory i) => i.getInstanceOf(${binding.concreteType}), singleton:${binding.isSingleton}";
+  return "${binding.implementedType}, (DadoFactory i) => "
+    "i.getInstanceOf(${binding.concreteType}), singleton:${binding.isSingleton}";
 }
 
 typedef String PrintHandler(DiscoveredBinding binding);
@@ -60,16 +69,20 @@ class InjectorGenerator {
 
   PrintHandler _findHandler(DiscoveredBinding binding) {
     if(implements(binding, DiscoveredFieldBinding)) {
-      return (DiscoveredBinding _) => handleStringSingleton(_ as DiscoveredFieldBinding);
+      return (DiscoveredBinding _) =>
+          handleStringSingleton(_ as DiscoveredFieldBinding);
     } else if(implements(binding, DiscoveredMethodBinding)) {
         if(!binding.hasInitializer) {
           if(binding.concreteType == binding.implementedType) {
-            return (DiscoveredBinding _) => handleSimpleConcreteType(_ as DiscoveredMethodBinding);
+            return (DiscoveredBinding _) =>
+                handleSimpleConcreteType(_ as DiscoveredMethodBinding);
           } else {
-            return (DiscoveredBinding _) => handleSubtype(_ as DiscoveredMethodBinding);
+            return (DiscoveredBinding _) =>
+                handleSubtype(_ as DiscoveredMethodBinding);
           }
         } else {
-          return (DiscoveredBinding _) => handleComplexInitializer(_ as DiscoveredMethodBinding);
+          return (DiscoveredBinding _) =>
+              handleComplexInitializer(_ as DiscoveredMethodBinding);
         }
     }
   }

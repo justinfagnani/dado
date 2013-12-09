@@ -26,7 +26,8 @@ class DadoASTVisitor extends ASTCloner {
     //TODO(bendera): Introduce caching for module and this injector in case
     //of revisit
     if (node.staticElement.enclosingElement == _injectorClass) {
-      ModuleAstVisitor moduleVisitor = new ModuleAstVisitor(_moduleClass, _context);
+      ModuleAstVisitor moduleVisitor =
+          new ModuleAstVisitor(_moduleClass, _context);
       node.argumentList.arguments.accept(moduleVisitor);
       bindings.addAll(moduleVisitor.bindings);
       //TODO(bendera): when we are ready, bring in code transform.
@@ -79,13 +80,15 @@ class ModuleAstVisitor extends GeneralizingASTVisitor {
       throw new ArgumentError('Argument: ${element.type} to Injector is not a '
           'subtype of Module');
     }
-    //having found a use of a Module we need to build and traverse its AST, which is different than the
-    //AST where it was used.
+    //having found a use of a Module we need to build and traverse its AST,
+    //which is different than the AST where it was used.
     var locator = new NodeLocator.con1(element.nameOffset);
-    locator.searchWithin(_context.resolveCompilationUnit(element.source, element.library));
+    locator.searchWithin(
+        _context.resolveCompilationUnit(element.source, element.library));
 
     //TODO(bendera): what should we do if no node is found?
-    var discoveredMembers = (locator.foundNode.parent as ClassDeclaration).members;
+    var discoveredMembers =
+        (locator.foundNode.parent as ClassDeclaration).members;
     Iterable<DiscoveredBinding> discoveredBindings = discoveredMembers.where(
         (ClassMember m) => m is FieldDeclaration || m is MethodDeclaration)
           .map((m) {
@@ -94,7 +97,8 @@ class ModuleAstVisitor extends GeneralizingASTVisitor {
               boundTypes.add(binding.implementedType);
               return binding;
             } else {
-              throw new ArgumentError('Duplicate binding for type: ${binding.implementedType}');
+              throw new ArgumentError(
+                  'Duplicate binding for type: ${binding.implementedType}');
             }
           });
     bindings.addAll(discoveredBindings);

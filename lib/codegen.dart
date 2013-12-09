@@ -103,11 +103,14 @@ class CodeGen {
   void run() {
     var dadoPackagePath = absoluteNormalize(path.join(_dadoOptions.dadoRoot,
     'packages'));
-    var targetPackagePath = absoluteNormalize('/Users/bendera/Development/code/usesdado/packages/');
+    var targetPackagePath =
+        absoluteNormalize('/Users/bendera/Development/code/usesdado/packages/');
     var sdk = new DirectoryBasedDartSdk(new JavaFile(_dadoOptions.dartSdkPath));
 
-    var sourceFactory = new SourceFactory.con2([new DartUriResolver(sdk),
-                                                new PackageUriResolver([new JavaFile(dadoPackagePath), new JavaFile(targetPackagePath)])]);
+    var sourceFactory = new SourceFactory.con2([
+        new DartUriResolver(sdk),
+        new PackageUriResolver([new JavaFile(dadoPackagePath),
+                                new JavaFile(targetPackagePath)])]);
 
     var context = AnalysisEngine.instance.createAnalysisContext()
         ..sourceFactory = sourceFactory;
@@ -128,7 +131,8 @@ class CodeGen {
     var injectorClass = dadoLibrary.getType("Injector");
     var moduleClass = dadoLibrary.getType("Module");
 
-    var injectorVisitor = new DadoASTVisitor(context, injectorClass, moduleClass);
+    var injectorVisitor =
+        new DadoASTVisitor(context, injectorClass, moduleClass);
     resolvedTargetCompilationUnit.accept(injectorVisitor);
     bindings.addAll(injectorVisitor.bindings);
     imports.addAll(injectorVisitor.imports);
@@ -149,11 +153,13 @@ class CodeGen {
           });
     var unboundDeps = transitiveDeps.difference(boundTypes);
     if (unboundDeps.length > 0) {
-      throw new IllegalArgumentException("One or more types found in your application was not bound: $unboundDeps");
+      throw new IllegalArgumentException("One or more types found in your "
+          "application was not bound: $unboundDeps");
     }
     var unboundConcreteTypes = concreteTypes.difference(boundTypes);
     if (unboundConcreteTypes.length > 0) {
-      throw new IllegalArgumentException("One or more types found in your application was not bound: $unboundConcreteTypes");
+      throw new IllegalArgumentException("One or more types found in your "
+          "application was not bound: $unboundConcreteTypes");
     }
   }
 }
@@ -190,7 +196,8 @@ class DadoOptions {
   static String _checkTargetPath(String targetPath) {
     var targetFile;
     try {
-      if(!new File(targetPath).existsSync()) throw 'target not found $targetPath';
+      if(!new File(targetPath).existsSync())
+        throw 'target not found $targetPath';
     } catch(e) {
       throw new ArgumentError('Invalid Target Path, path $targetPath does not '
           'exist or is not a file');

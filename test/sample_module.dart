@@ -46,16 +46,12 @@ DadoFactory factory = new DadoFactory()
   ..addFactory(Bar, (DadoFactory i) => new Bar())
   ..addFactory(Baz, (DadoFactory i) => i.getInstanceOf(SubBaz), singleton:true)
   ..addFactory(Fuzz, (DadoFactory i) => i.getInstanceOf(SubFuzz))
-  ..addFactory(Snap, (DadoFactory i) {
-    ((Bar b, Foo f) => new Snap(b, f))(i.getInstanceOf(Bar) as Bar, i.getInstanceOf(Foo) as Foo);
-   }, singleton:true)
-   ..addFactory(Resnap, (DadoFactory i) {
-    ((Bar b, Snap s) => new Resnap(b, s))(i.getInstanceOf(Bar) as Bar, i.getInstanceOf(Snap) as Snap);
-   })
+  ..addFactory(Snap, (DadoFactory i) {((Bar b, Foo f) => new Snap(b, f))(i.getInstanceOf(Bar) as Bar, i.getInstanceOf(Foo) as Foo);}, singleton:true)
+  ..addFactory(Resnap, (DadoFactory i) {((Bar b, Snap s) => new Resnap(b, s))(i.getInstanceOf(Bar) as Bar, i.getInstanceOf(Snap) as Snap);})
   ..addFactory(bool, (DadoFactory i) => true, singleton:true)
   ..addFactory(Qux, (DadoFactory i) => new Qux(i.getInstanceOf(Foo) as Foo))
   ..addFactory(SubFuzz, (DadoFactory i) => new SubFuzz())
-  ..addFactory(SubBaz, (DadoFactory i) => new SubBaz(i.getInstanceOf(Qux)));
+  ..addFactory(SubBaz, (DadoFactory i) => new SubBaz(i.getInstanceOf(Qux) as Qux));
 
 
 class DadoFactory {

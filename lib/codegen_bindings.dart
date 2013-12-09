@@ -77,64 +77,56 @@ class DiscoveredMethodBinding extends DiscoveredBinding {
   final List<ParameterElement> constructorArgs;
   final Set<Type2> transitiveDependencies;
 
+
+  static bool isSingletonBinding(MethodDeclaration methodDeclaration) {
+    if (methodDeclaration.body is EmptyFunctionBody) {
+      return methodDeclaration.isGetter;
+    } else if (methodDeclaration.body is ExpressionFunctionBody) {
+      if ((methodDeclaration.body as ExpressionFunctionBody).expression is
+          PropertyAccess) {
+        var bindingExpression  = methodDeclaration.body as ExpressionFunctionBody;
+        var propertyAccessExp = bindingExpression.expression as PropertyAccess;
+        return propertyAccessExp.propertyName.toString() == 'singleton';
+      }
+    }
+    return false;
+  }
+
   //TODO(bendera): should capture context of decleration for later reporting
   //e.g. when we get an error can we point to which module/line # caused it.
   factory DiscoveredMethodBinding.parse(MethodDeclaration methodDeclaration) {
-    bool singleton = false;
     Type2 implementedType = methodDeclaration.returnType.type;
     Type2 concreteType;
     Expression initializer;
     List<ParameterElement> constructorArgs = [];
     Set<Type2> transitiveDependencies = new Set();
 
-    if (methodDeclaration.body is ExpressionFunctionBody) {
-      if ((methodDeclaration.body as ExpressionFunctionBody).expression is
-          PropertyAccess) {
-        singleton =
-            ((methodDeclaration.body as ExpressionFunctionBody).expression as
-                PropertyAccess).propertyName.toString() == 'singleton';
-      }
-    }
     if (methodDeclaration.body is EmptyFunctionBody) {
-      //Foo get foo, Bar newBar()
+      //ex. Foo get foo, Bar newBar()
       concreteType =  implementedType;
-      singleton = methodDeclaration.isGetter;
     } else if (methodDeclaration.body is ExpressionFunctionBody) {
-      var expressionBody = methodDeclaration.body as ExpressionFunctionBody;
-      if (expressionBody.expression is PropertyAccess) {
-        var target = ((expressionBody.expression as PropertyAccess).target as
-            MethodInvocation).argumentList.arguments[0];
-        if(target is SimpleIdentifier) {
-          //Baz get baz => bindTo(SubBaz).singleton
-          concreteType = ((target as SimpleIdentifier).staticElement as
-              ClassElement).type;
-        } else if(target is FunctionExpression) {
-          //Snap snap() => bindTo(Snap).providedBy((Bar b) =>
-          //new Snap(b)).singleton;
-          initializer = target;
-          concreteType = (target as FunctionExpression).element.returnType;
-        }
-      } else if (expressionBody.expression is MethodInvocation) {
-        var target = expressionBody.expression as MethodInvocation;
-        if ((target.target as MethodInvocation).argumentList.arguments[0] is
-            SimpleIdentifier) {
-          //Fuzz fuzz() => bindTo(SubFuzz).newInstance();
-          concreteType =
-              (((target.target as MethodInvocation).argumentList.arguments[0] as
-                  SimpleIdentifier).staticElement as ClassElement).type;
-        } else if((target.target as MethodInvocation).argumentList.arguments[0]
-              is FunctionExpression) {
-          //Resnap resnap() => bindTo(Resnap).providedBy((Bar b)
-          //=> new Resnap(b)).newInstance();
-          initializer =
-              ((target.target as MethodInvocation).argumentList.arguments[0] as
-                  FunctionExpression);
-          concreteType =
-              ((target.target as MethodInvocation).argumentList.arguments[0] as
-                  FunctionExpression).element.returnType;
-        }
+      var bindingExpression = methodDeclaration.body as ExpressionFunctionBody;
+      MethodInvocation bindingMethodInv = null;
+      if (bindingExpression.expression is PropertyAccess) {
+        var propertyAccessExp = bindingExpression.expression as PropertyAccess;
+        bindingMethodInv = propertyAccessExp.target as MethodInvocation;
+      } else {
+        var expressionInvo = bindingExpression.expression as MethodInvocation;
+        bindingMethodInv = expressionInvo.target as MethodInvocation;
+      }
+      var bindingInvArgs = bindingMethodInv.argumentList.arguments[0];
+      if(bindingInvArgs is SimpleIdentifier) {
+        //ex. Baz get baz => bindTo(SubBaz)
+        var bindingTarget = bindingInvArgs as SimpleIdentifier;
+        concreteType = (bindingTarget.staticElement as ClassElement).type;
+      } else if(bindingInvArgs is FunctionExpression) {
+        //ex. Snap snap() => bindTo(Snap).providedBy((Bar b) => new Snap(b));
+        var bindingFunctionExp = bindingInvArgs as FunctionExpression;
+        initializer = bindingFunctionExp;
+        concreteType = bindingFunctionExp.element.returnType;
       }
     }
+
     //enumerate dependency graph in the args so we can check all types our bound
     //later
     constructorArgs.addAll(
@@ -142,7 +134,7 @@ class DiscoveredMethodBinding extends DiscoveredBinding {
     transitiveDependencies = _enumerateDepenedenyGraph(constructorArgs);
     return new DiscoveredMethodBinding(implementedType,
         concreteType,
-        singleton,
+        isSingletonBinding(methodDeclaration),
         initializer,
         new UnmodifiableListView(constructorArgs),
         new UnmodifiableSetView(transitiveDependencies));

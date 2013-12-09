@@ -60,11 +60,13 @@ main(List<String> arguments){
   var codeGen = new CodeGen(dadoOptions);
   codeGen.run();
 
+//  debugging tools
 //  var writer = new PrintStringWriter();
 //  result.accept(new ToFormattedSourceVisitor(writer));
 
   _logger.fine('------ Discovered Bindings -----');
   codeGen.bindings.forEach((_) => _logger.fine(_.toString()));
+//  debugging tools
 //  _logger.fine('------ generated class using injector-----');
 //  _logger.fine(writer.toString());
 

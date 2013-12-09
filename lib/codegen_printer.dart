@@ -10,7 +10,7 @@ String handleFactoryCascade(DiscoveredBinding binding,
 
 String handleStringSingleton(DiscoveredFieldBinding binding) {
   return "${binding.concreteType}, (DadoFactory i) => ${binding.initializer}, "
-    "singleton:true";
+    "singleton:${binding.isSingleton}";
 }
 
 String handleSimpleConcreteType(DiscoveredMethodBinding binding) {
@@ -23,7 +23,7 @@ String handleSimpleConcreteType(DiscoveredMethodBinding binding) {
           "i.getInstanceOf(${el.type.name}) as ${el.type.name}").join(', ');
 
   return "${binding.implementedType},  (DadoFactory i) => "
-      "new ${binding.concreteType}($constructorArgs), singleton:true";
+      "new ${binding.concreteType}($constructorArgs), singleton:${binding.isSingleton}";
 }
 
 String handleComplexInitializer(DiscoveredMethodBinding binding) {
@@ -33,10 +33,10 @@ String handleComplexInitializer(DiscoveredMethodBinding binding) {
   String instantiationArgs =
       binding.constructorArgs.map((ParameterElement el) =>
           "i.getInstanceOf(${el.type.name}) as ${el.type.name}").join(', ');
-  return "${binding.implementedType},  (DadoFactory i) {\n"
+  return "${binding.implementedType},  (DadoFactory i) {"
     " (($typedConstructorArgs) => "
-    "new ${binding.concreteType}($constructorArgs))($instantiationArgs);\n"
-    "}, singleton:true";
+    "new ${binding.concreteType}($constructorArgs))($instantiationArgs);"
+    "}, singleton:${binding.isSingleton}";
 }
 
 String handleSubtype(DiscoveredMethodBinding binding) {

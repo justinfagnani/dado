@@ -44,7 +44,7 @@ class DiscoveredFieldBinding extends DiscoveredBinding {
       "Initializer: $initializer, "
       "singleton: $isSingleton]";
 
-  bool operator == (Object other) {
+  bool operator ==(Object other) {
     if (other is! DiscoveredFieldBinding)
       return false;
     DiscoveredFieldBinding otherBinding = other;
@@ -127,8 +127,7 @@ class DiscoveredMethodBinding extends DiscoveredBinding {
       }
     }
 
-    //enumerate dependency graph in the args so we can check all types our bound
-    //later
+    //enumerate dependency graph so we can check that all types were bound later
     constructorArgs.addAll(
         (concreteType.element as ClassElement).constructors.first.parameters);
     transitiveDependencies = _enumerateDepenedenyGraph(constructorArgs);

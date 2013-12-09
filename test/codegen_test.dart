@@ -3,46 +3,26 @@ library codegen_test;
 
 import 'dart:io';
 import 'package:unittest/unittest.dart';
-import 'package:analyzer/src/generated/java_io.dart';
-import 'package:analyzer/src/generated/source_io.dart';
-import 'package:analyzer/src/generated/sdk.dart' show DartSdk;
-import 'package:analyzer/src/generated/sdk_io.dart'
-  show DirectoryBasedDartSdk;
-import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/ast.dart';
 import 'package:analyzer/src/generated/scanner.dart';
 import 'package:dado/codegen.dart';
-import 'package:path/path.dart' as path;
 
 //These tests currently expect to be run from the top-level dado directory.
 main() {
-  group('ModuleAstVisitor', (){
+  group('CodeGen', (){
     CodeGen _codeGen;
     CompilationUnit _result;
+    var dadoOptions;
 
     setupCodeGen(String testFile) {
-      var dadoOptions = new DadoOptions(
+      dadoOptions = new DadoOptions(
           extractSdkPathFromExecutablePath(Platform.executable),
           absoluteNormalize('.'),
           absoluteNormalize(testFile));
-      var dadoPackagePath = absoluteNormalize(
-          path.join(dadoOptions.dadoRoot,'packages'));
-
-      DartSdk _sdk = new DirectoryBasedDartSdk(
-          new JavaFile(dadoOptions.dartSdkPath));
-
-      AnalysisContext context =
-          AnalysisEngine.instance.createAnalysisContext();
-
-      context.sourceFactory = new SourceFactory.con2(
-          [new DartUriResolver(_sdk), new PackageUriResolver(
-          [new JavaFile(dadoPackagePath)])]);
-
-      return new CodeGen(dadoOptions, context,
-          new FileBasedSourceFactory(context));
+      return new CodeGen(dadoOptions);
     }
 
-    test('Replaces Injector Constructor Invocation', () {
+    skip_test('Replaces Injector Constructor Invocation', () {
       _result = setupCodeGen('test/sample_module.dart').run();
       var newConstructorMatcher =
           new InjectorConstructorMatcher('GeneratedInjector');
@@ -57,25 +37,61 @@ main() {
           reason: 'Original constructor statement found');
     });
 
+    test('bindings are empty initially',(){
+      CodeGen codeGen = setupCodeGen('test/field_bindings_module.dart');
+      expect(codeGen.bindings, isEmpty);
+    });
+
     test('correctly identifies field bindings',(){
       CodeGen codeGen = setupCodeGen('test/field_bindings_module.dart');
 
-      expect(codeGen.bindings, isEmpty);
+      codeGen.run();
+
+      expect(codeGen, containsBinding("\"abbra\"", 'String', 'String', true));
+      expect(codeGen, containsBinding("true", 'bool', 'bool', true));
+      expect(codeGen, containsBinding("12345", 'int', 'int', true));
+    });
+
+    test('correctly identifies simple intance bindings',(){
+      CodeGen codeGen =
+          setupCodeGen('test/simple_instance_bindings_module.dart');
 
       codeGen.run();
 
-      expect(codeGen.bindings, contains(
-          new SimpleDiscoveredFieldBinding("\"abbra\"", true, "String")));
-      expect(codeGen.bindings, contains(
-          new SimpleDiscoveredFieldBinding("true", true, "bool")));
-      expect(codeGen.bindings, contains(
-          new SimpleDiscoveredFieldBinding("12345", true, "int")));
+      expect(codeGen, containsBinding(null, 'Foo', 'Foo', false));
+      expect(codeGen, containsBinding(null, 'Bar', 'Bar', true));
     });
+
+    test('correctly identifies subclassed bindings',(){
+      CodeGen codeGen = setupCodeGen('test/subclass_bindings_module.dart');
+
+      codeGen.run();
+
+      expect(codeGen, containsBinding(null, 'Foo', 'SubFoo', true));
+      expect(codeGen, containsBinding(null, 'Bar', 'SubBar', false));
+    });
+
+    test('correctly identifies provider bindings',(){
+      CodeGen codeGen = setupCodeGen('test/provider_bindings_module.dart');
+
+      codeGen.run();
+
+      expect(codeGen, containsBinding('(Bar b, Foo f) => new Snap(b, f)',
+                                      'Snap', 'Snap', true));
+      expect(codeGen, containsBinding('(Bar b, Snap s) => new Resnap(b, s)',
+                                      'Resnap', 'Resnap', false));
+    });
+
+    test('correctly identifies unbound types',(){
+      CodeGen codeGen = setupCodeGen('test/unbound_bindings_module.dart');
+
+      expect(() => codeGen.run(), throwsArgumentError);
+    });
+
+    //TODO(bendera): need to test printing too.
   });
 
   group('DadoOptions', (){
-    setUp((){});
-
     //TODO(bendera): add tests for bogus dart sdk args
     test('Empty Options Cause Exceptions', () {
       expect(() => new DadoOptions(
@@ -85,13 +101,13 @@ main() {
       throwsArgumentErrorWithMsg('invalid sdk path'));
 
       expect(() => new DadoOptions(
-          extractSdkPathFromExecutablePath(options.executable),
+          extractSdkPathFromExecutablePath(Platform.executable),
           null,
           absoluteNormalize('test/sample_module.dart')),
           throwsArgumentErrorWithMsg('invalid dado path'));
 
       expect(()=> new DadoOptions(
-          extractSdkPathFromExecutablePath(options.executable),
+          extractSdkPathFromExecutablePath(Platform.executable),
           absoluteNormalize('.'),
           null),
           throwsArgumentErrorWithMsg('invalid target path'));
@@ -105,13 +121,13 @@ main() {
       throwsArgumentErrorWithMsg('does not exist'));
 
       expect(() => new DadoOptions(
-          extractSdkPathFromExecutablePath(options.executable),
+          extractSdkPathFromExecutablePath(Platform.executable),
           '',
           absoluteNormalize('test/sample_module.dart')),
           throwsArgumentErrorWithMsg('does not exist'));
 
       expect(()=> new DadoOptions(
-          extractSdkPathFromExecutablePath(options.executable),
+          extractSdkPathFromExecutablePath(Platform.executable),
           absoluteNormalize('.'),
           ''),
           throwsArgumentErrorWithMsg('does not exist'));
@@ -127,21 +143,12 @@ main() {
 
     test('Dado Path without Dado Lib', () {
       expect(() => new DadoOptions(
-          extractSdkPathFromExecutablePath(options.executable),
+          extractSdkPathFromExecutablePath(Platform.executable),
           absoluteNormalize('test'), //test dir is not dado lib
           absoluteNormalize('test/sample_module.dart')),
           throwsArgumentErrorWithMsg('must contain'));
     });
   });
-}
-
-class SimpleDiscoveredFieldBinding implements DiscoveredFieldBinding {
-  final Object initializer;
-  final bool isSingleton;
-  final String type;
-
-  SimpleDiscoveredFieldBinding(this.initializer, this.isSingleton, this.type);
-  FieldDeclaration get bindingDeclaration => null;
 }
 
 class InjectorConstructorMatcher extends GeneralizingASTVisitor {
@@ -184,4 +191,49 @@ class ArgumentErrorWithMsg extends Matcher {
 
   Description describe(Description description) =>
       description.add('ArgumentError with message containing "$_msg"');
+}
+
+Matcher containsBinding(String initializer, String concreteType,
+                        String implementedType, bool isSingleton) =>
+  new _ContainsBinding(initializer, concreteType, implementedType, isSingleton);
+
+class _ContainsBinding extends Matcher {
+
+  final String _initializer;
+  final String _implementedType;
+  final String _concreteType;
+  final bool _isSingleton;
+
+  const _ContainsBinding(this._initializer, this._implementedType,
+      this._concreteType, this._isSingleton);
+
+  bool matches(CodeGen codeGen, Map matchState) {
+    for (DiscoveredBinding binding in codeGen.bindings) {
+      if (binding.concreteType.toString() == _concreteType &&
+          binding.implementedType.toString() == _implementedType &&
+          _initializerMatches(binding) &&
+          binding.isSingleton == _isSingleton) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _initializerMatches(binding) => binding.initializer == null ?
+      _initializer == null : binding.initializer.toString() == _initializer;
+
+  Description describe(Description description) =>
+      description.add('contains binding with initializer, implementedType, '
+          'concreteType, isSingleton: ').addDescriptionOf("$_initializer, "
+          "$_implementedType, $_concreteType, $_isSingleton");
+
+  Description describeMismatch(item, Description mismatchDescription,
+                               Map matchState, bool verbose) {
+    if (item is CodeGen) {
+      return super.describeMismatch(item.bindings, mismatchDescription,
+          matchState, verbose);
+    } else {
+      return mismatchDescription.add('is not a CodeGen object');
+    }
+  }
 }

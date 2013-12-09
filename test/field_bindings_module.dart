@@ -7,8 +7,6 @@ main(){
 }
 
 abstract class FieldsOnlyModule extends Module {
-  FieldsOnlyModule() : super();
-
   String aString = "abbra";
   bool aBool = true;
   int anInt = 12345;

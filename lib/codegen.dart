@@ -76,7 +76,6 @@ main(List<String> arguments){
   _logger.fine(generatedSource.toString());
 }
 
-
 void setupLogger() {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((LogRecord r) {
@@ -155,15 +154,17 @@ class CodeGen {
           });
     var unboundDeps = transitiveDeps.difference(boundTypes);
     if (unboundDeps.length > 0) {
-      throw new IllegalArgumentException("One or more types found in your "
+      throw new ArgumentError("One or more types found in your "
           "application was not bound: $unboundDeps");
     }
     var unboundConcreteTypes = concreteTypes.difference(boundTypes);
     if (unboundConcreteTypes.length > 0) {
-      throw new IllegalArgumentException("One or more types found in your "
+      throw new ArgumentError("One or more types found in your "
           "application was not bound: $unboundConcreteTypes");
     }
   }
+
+  String toString() => "CodeGen[bindings: $bindings]";
 }
 
 /**

@@ -25,7 +25,7 @@ abstract class _Binding {
   
   Object buildInstance(Injector injector);
   
-  Iterable<Key> getDependencies();
+  Iterable<Key> getDependencies(Injector injector);
   
 }
 
@@ -39,7 +39,7 @@ class _InstanceBinding extends _Binding {
   
   Object buildInstance(Injector injector) => _instance;
   
-  Iterable<Key> getDependencies() => [];
+  Iterable<Key> getDependencies(Injector injector) => [];
   
 }
 
@@ -59,20 +59,35 @@ class _ProviderBinding extends _Binding {
     moduleMirror.reflectee._currentKey = key;
     
     if (!provider.isGetter) {
-      var parameters = injector._resolveParameters(provider.parameters);
+      var parameterResolution = injector._resolveParameters(provider.parameters);
       return moduleMirror
-          .invoke(provider.simpleName, parameters, null).reflectee;
+          .invoke(
+              provider.simpleName, 
+              parameterResolution.positionalParameters, 
+              parameterResolution.namedParameters).reflectee;
     } else {
       return moduleMirror.getField(provider.simpleName).reflectee;
     }
   }
   
-  Iterable<Key> getDependencies() {
-    return provider.parameters.map((parameter) {
-      var name = parameter.type.qualifiedName;
-      var annotation = _getBindingAnnotation(parameter);
-      return new Key(name, annotatedWith: annotation);
-    });
+  Iterable<Key> getDependencies(Injector injector) {
+    return provider.parameters
+        .where((parameter) {
+          var parameterClassMirror = 
+              (parameter.type as ClassMirror).reflectedType;
+          var annotation = _getBindingAnnotation(parameter);
+          
+          var key = new Key.forType(
+              parameterClassMirror,
+              annotatedWith: annotation);
+          
+          return !parameter.isOptional || injector.containsBinding(key);
+        })
+        .map((parameter) {
+          var name = parameter.type.qualifiedName;
+          var annotation = _getBindingAnnotation(parameter);
+          return new Key(name, annotatedWith: annotation);
+        });
   }
   
 }
@@ -86,9 +101,12 @@ class _ConstructorBinding extends _ProviderBinding {
   
   @override
   Object buildInstance(Injector injector) {
-    var parameters = injector._resolveParameters(provider.parameters);
+    var parameterResolution = injector._resolveParameters(provider.parameters);
     var obj = (provider.owner as ClassMirror)
-        .newInstance(provider.constructorName, parameters, null).reflectee;
+          .newInstance(
+            provider.constructorName, 
+            parameterResolution.positionalParameters, 
+            parameterResolution.namedParameters).reflectee;
     
     return obj;
   }

@@ -81,6 +81,18 @@ class HasNoArgsConstructor {
   HasNoArgsConstructor.noArgs();
 }
 
+class HasSatisfiedNamedParameter {
+  String a;
+
+  HasSatisfiedNamedParameter({String a}) : this.a = a;
+}
+
+class HasNonSatisfiedNamedParameter {
+  double a;
+
+  HasNonSatisfiedNamedParameter({double a}) : this.a = a;
+}
+
 
 // Indirect circular dependency tests classes
 class Quux {
@@ -128,6 +140,10 @@ abstract class Module1 extends Module {
   HasAnnotatedConstructor hasAnnotatedConstructor(); 
   
   HasNoArgsConstructor hasNoArgsConstructor(); 
+  
+  HasSatisfiedNamedParameter hasSatisfiedNamedParameter();
+  
+  HasNonSatisfiedNamedParameter hasNonSatisfiedNamedParameter();
 
   Baz get baz => bindTo(SubBaz).singleton;
 
@@ -249,6 +265,18 @@ main() {
     test('should use no-args constructor', () {
       var o = injector.getInstanceOf(HasNoArgsConstructor);
       expect(o, new isInstanceOf<HasNoArgsConstructor>());
+      expect(o.a, null);
+    });
+    
+    test('should inject named parameter', () {
+      var o = injector.getInstanceOf(HasSatisfiedNamedParameter);
+      expect(o, new isInstanceOf<HasSatisfiedNamedParameter>());
+      expect(o.a, 'a');
+    });
+    
+    test('should not inject named parameter', () {
+      var o = injector.getInstanceOf(HasNonSatisfiedNamedParameter);
+      expect(o, new isInstanceOf<HasNonSatisfiedNamedParameter>());
       expect(o.a, null);
     });
     

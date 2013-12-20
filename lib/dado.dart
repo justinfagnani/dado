@@ -212,8 +212,10 @@ class Injector {
   dynamic callInjected(Function f) {
     var mirror = reflect(f);
     assert(mirror is ClosureMirror);
-    var parameters = _resolveParameters(mirror.function.parameters);
-    return Function.apply(f, parameters);
+    var parameterResolution = _resolveParameters(mirror.function.parameters);
+    return Function.apply(
+        f, parameterResolution.positionalParameters, 
+        parameterResolution.namedParameters);
   }
 
   _Binding _getBinding(Key key) {
@@ -230,15 +232,38 @@ class Injector {
     return binding;
   }
 
-  bool _containsBinding(Key key) => _bindings.containsKey(key) ||
-      (parent != null ? parent._containsBinding(key) : false);
+  bool containsBinding(Key key) => _bindings.containsKey(key) ||
+      (parent != null ? parent.containsBinding(key) : false);
 
-  List<Object> _resolveParameters(List<ParameterMirror> parameters) =>
-      parameters.where((parameter) => !parameter.isOptional).map(
-          (parameter) =>
-            getInstanceOf((parameter.type as ClassMirror).reflectedType,
-                annotatedWith: _getBindingAnnotation(parameter))
-      ).toList(growable: false);
+  _ParameterResolution _resolveParameters(List<ParameterMirror> parameters) {
+      var positionalParameters = parameters
+          .where((parameter) => !parameter.isOptional)
+          .map((parameter) =>
+              getInstanceOf((parameter.type as ClassMirror).reflectedType,
+                  annotatedWith: _getBindingAnnotation(parameter))
+        ).toList(growable: false);
+      
+      var namedParameters = new Map<Symbol, Object>();
+      parameters.forEach((parameter) {
+        if (parameter.isNamed) {
+          var parameterClassMirror = 
+              (parameter.type as ClassMirror).reflectedType;
+          var annotation = _getBindingAnnotation(parameter);
+          
+          var key = new Key.forType(
+              parameterClassMirror,
+              annotatedWith: annotation);
+          
+          if (containsBinding(key)) {
+            namedParameters[parameter.simpleName] = 
+                getInstanceOf(parameterClassMirror,
+                  annotatedWith: annotation);
+          }
+        }
+      });
+      
+      return new _ParameterResolution(positionalParameters, namedParameters);
+  }
 
   void _registerBindings(Type moduleType){
     var classMirror = reflectClass(moduleType);
@@ -318,7 +343,7 @@ class Injector {
 
     dependencyStack.add(binding.key);
 
-    var dependencies = binding.getDependencies();
+    var dependencies = binding.getDependencies(this);
     dependencies.forEach((dependency) {
       var dependencyBinding = this._getBinding(dependency);
 
@@ -384,6 +409,14 @@ class Injector {
   }
 
   String toString() => 'Injector: $name';
+}
+
+class _ParameterResolution {
+  List<Object> positionalParameters;
+  Map<Symbol, Object> namedParameters;
+  
+  _ParameterResolution (this.positionalParameters, this.namedParameters);
+  
 }
 
 class _Binder {
@@ -468,7 +501,7 @@ abstract class Module {
 
     var boundToKey = new Key(_typeName(type), annotatedWith: annotatedWith);
 
-    if (!_currentInjector._containsBinding(boundToKey)) {
+    if (!_currentInjector.containsBinding(boundToKey)) {
         _currentInjector._createBindingForType(type,
             annotatedWith: annotatedWith);
     }

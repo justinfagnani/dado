@@ -105,8 +105,21 @@ class MyModule extends Module {
 }
 
 class Bar {
-  // A default method is automatically injected with dependencies
+  // When there is only one constructor, it is automatically injected with
+  // dependencies
   Bar(Foo foo);
+}
+
+class Baz {
+  String serverAddress;
+  
+  Baz();
+  
+  // In classes that have multiple constructors, the desired constructor can
+  // be selected using the @inject annotation. Otherwise, Dado will look for
+  // a no-args constructor.
+  @inject
+  Baz.injectable(String this.serverAddress);
 }
 
 main() {
@@ -124,8 +137,6 @@ production yet.
 Known Issues and Limitations
 ----------------------------
 
- * Injectable classes must either have a default constructor or a single
-   constructor.
  * There can only be one binding per type, because parameter annotations cannot
    be access via mirrors yet. When issue 11418 is fixed, Dado will respect
    annotations of parameters.

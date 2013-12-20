@@ -137,11 +137,7 @@ production yet.
 Known Issues and Limitations
 ----------------------------
 
- * There can only be one binding per type, because parameter annotations cannot
-   be access via mirrors yet. When issue 11418 is fixed, Dado will respect
-   annotations of parameters.
  * Functions cannot be injected yet.
- * Named parameters are not supported.
  * No custom scope support. The only scopes are unscoped and singleton.
    Hierarchical modules might be enough.
  * Modules must extend `Module`. When mixins are better supported in Dart,

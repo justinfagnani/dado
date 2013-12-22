@@ -2,7 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dado;
+library dado.binding;
+
+import 'dart:collection';
+import 'dart:mirrors';
+import 'injector.dart';
+import 'utils.dart' as Utils;
 
 /**
  * Bindings define the way that instances of a [Key] are created. They are used
@@ -12,103 +17,179 @@ part of dado;
  * This is an interface, so there can be several types of Bindings, each one 
  * with its own internal logic to build instances and define its scope.
  */
-abstract class _Binding {
+abstract class Binding {
   final Key key;
   final InstanceMirror moduleMirror;
   final bool singleton;
   
-  _Binding(Key this.key, InstanceMirror this.moduleMirror, 
+  Binding(Key this.key, InstanceMirror this.moduleMirror, 
       {bool this.singleton: false});
   
-  Object getInstance(Injector injector) => 
-      buildInstance(injector);
+  Object buildInstance(DependencyResolution dependencyResolution);
   
-  Object buildInstance(Injector injector);
-  
-  Iterable<Key> getDependencies(Injector injector);
+  Iterable<Dependency> get dependencies;
   
 }
 
-class _InstanceBinding extends _Binding {
+class InstanceBinding extends Binding {
   Object _instance;
+  List<Dependency> _dependencies = [];
   
-  _InstanceBinding(Key key, Object instance, InstanceMirror moduleMirror) : 
+  InstanceBinding(Key key, Object instance, InstanceMirror moduleMirror) : 
     super(key, moduleMirror, singleton: true) {
     _instance = instance;
   }
   
-  Object buildInstance(Injector injector) => _instance;
+  Object buildInstance(DependencyResolution dependencyResolution) => _instance;
   
-  Iterable<Key> getDependencies(Injector injector) => [];
+  Iterable<Dependency> get dependencies => 
+      new UnmodifiableListView(_dependencies);
   
 }
 
-class _ProviderBinding extends _Binding {
+class ProviderBinding extends Binding {
   final MethodMirror provider;
+  List<Dependency> _dependencies;
   
-  _ProviderBinding 
+  ProviderBinding 
   (Key key, MethodMirror this.provider, InstanceMirror moduleMirror, 
       {bool singleton: false}) :
         super(key, moduleMirror, singleton: singleton);
   
-  Object buildInstance(Injector injector) {
-    if (moduleMirror == null)
-      return null;
-    
-    moduleMirror.reflectee._currentInjector = injector;
-    moduleMirror.reflectee._currentKey = key;
-    
+  Object buildInstance(DependencyResolution dependencyResolution) {
     if (!provider.isGetter) {
-      var parameterResolution = injector._resolveParameters(provider.parameters);
+      var positionalArguments = 
+          _getPositionalArgsFromResolution(dependencyResolution);
+      var namedArguments = 
+          _getNamedArgsFromResolution(dependencyResolution);
+
       return moduleMirror
           .invoke(
               provider.simpleName, 
-              parameterResolution.positionalParameters, 
-              parameterResolution.namedParameters).reflectee;
+              positionalArguments, 
+              namedArguments).reflectee;
     } else {
       return moduleMirror.getField(provider.simpleName).reflectee;
     }
   }
   
-  Iterable<Key> getDependencies(Injector injector) {
-    return provider.parameters
-        .where((parameter) {
+  Iterable<Dependency> get dependencies {
+    if (_dependencies == null) {
+      _dependencies = new List<Dependency>(provider.parameters.length);
+      int position = 0;
+      
+      provider.parameters.forEach(
+        (parameter) {
           var parameterClassMirror = 
               (parameter.type as ClassMirror).reflectedType;
-          var annotation = _getBindingAnnotation(parameter);
+          var annotation = Utils.getBindingAnnotation(parameter);
           
           var key = new Key.forType(
               parameterClassMirror,
               annotatedWith: annotation);
           
-          return !parameter.isOptional || injector.containsBinding(key);
-        })
-        .map((parameter) {
-          var name = parameter.type.qualifiedName;
-          var annotation = _getBindingAnnotation(parameter);
-          return new Key(name, annotatedWith: annotation);
+          var dependency = 
+              new Dependency(parameter.simpleName,
+                             key, 
+                             isNullable: parameter.isNamed || 
+                                         parameter.isOptional,
+                             isPositional: !parameter.isNamed,
+                             position: position);
+          
+          _dependencies[position] = dependency;
+          
+          position++;
         });
+    }
+    
+    return new UnmodifiableListView(_dependencies);
+  }
+  
+  List<Object> _getPositionalArgsFromResolution(
+      DependencyResolution dependencyResolution) {
+    var positionalArgs = new List(dependencyResolution.instances.length);
+    
+    dependencyResolution.instances.forEach(
+        (dependency, instance) {
+          if (dependency.isPositional) {
+            positionalArgs[dependency.position] = instance;
+          }
+        });
+    
+    return positionalArgs.where((e) => e != null).toList(growable: false);
+  }
+  
+  Map<Symbol, Object> _getNamedArgsFromResolution(
+      DependencyResolution dependencyResolution) {
+    var namedArgs= new Map();
+    
+    dependencyResolution.instances.forEach(
+        (dependency, instance) {
+          if (!dependency.isPositional) {
+            namedArgs[dependency.name] = instance;
+          }
+        });
+    
+    return namedArgs;
   }
   
 }
 
-class _ConstructorBinding extends _ProviderBinding {
+class ConstructorBinding extends ProviderBinding {
   
-  _ConstructorBinding 
+  ConstructorBinding 
     (Key key, MethodMirror constructor, InstanceMirror moduleMirror, 
         {bool singleton: false}) : 
       super(key, constructor, moduleMirror, singleton: singleton);
   
   @override
-  Object buildInstance(Injector injector) {
-    var parameterResolution = injector._resolveParameters(provider.parameters);
+  Object buildInstance(DependencyResolution dependencyResolution) {
+    var positionalArguments = 
+        _getPositionalArgsFromResolution(dependencyResolution);
+    var namedArguments = 
+        _getNamedArgsFromResolution(dependencyResolution);
+    
     var obj = (provider.owner as ClassMirror)
           .newInstance(
             provider.constructorName, 
-            parameterResolution.positionalParameters, 
-            parameterResolution.namedParameters).reflectee;
+            positionalArguments, 
+            namedArguments).reflectee;
     
     return obj;
   }
 
+}
+
+class Dependency {
+  final Symbol name;
+  final Key key;
+  final bool isNullable;
+  final bool isPositional;
+  final int position;
+  
+  Dependency(
+      Symbol this.name,
+      Key this.key, {
+        bool this.isNullable: false, 
+        bool this.isPositional: true, 
+        int this.position: 0
+      });
+}
+
+class DependencyResolution {
+  Map<Dependency, Object> instances;
+  
+  DependencyResolution([Map<Dependency, Object> this.instances]) {
+    if (this.instances == null) {
+      this.instances = new Map<Dependency, Object>();
+    }
+  }
+  
+  Object operator [] (Dependency dependency) {
+    return instances[dependency];
+  }
+  
+  void operator []=(Dependency dependency, Object instance) {
+      instances[dependency] = instance;
+  }
 }

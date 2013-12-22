@@ -130,6 +130,8 @@ abstract class Module1 extends Module {
   Foo get foo;
 
   @B Foo get fooB;
+  
+  SubBaz get subBaz;
 
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
@@ -145,10 +147,9 @@ abstract class Module1 extends Module {
   
   HasNonSatisfiedNamedParameter hasNonSatisfiedNamedParameter();
 
-  Baz get baz => bindTo(SubBaz).singleton;
+  Baz baz(SubBaz subBaz) => subBaz;
 
-  Provided get provided => bindTo(Provided)
-      .providedBy((Foo foo) => new Provided(1, foo)).newInstance();
+  Provided provided(Foo foo) => new Provided(1, foo);
 }
 
 abstract class Module2 extends Module1 {
@@ -163,8 +164,10 @@ abstract class Module2 extends Module1 {
 abstract class Module3 extends Module {
 
   Qux get qux;
+  
+  SubBar get subBar;
 
-  Bar newBar() => bindTo(SubBar).newInstance();
+  Bar newBar(SubBar subBar) => subBar;
 }
 
 abstract class Module4 extends Module {
@@ -297,7 +300,7 @@ main() {
     setUp((){
       injector = new Injector([Module1], name: 'parent');
       childInjector = new Injector([Module3],
-          newInstances: [Baz, new Key.forType(Foo, annotatedWith: B)],
+          newInstances: [Baz, SubBaz, new Key.forType(Foo, annotatedWith: B)],
           parent: injector,
           name: 'child');
     });

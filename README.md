@@ -52,7 +52,7 @@ Principles
      too, working well with the DOM, and new technologies like custom elements
      and MDV.
   4. __Simplicity__ Dado should be as simple as possible, but no simpler.
-  5. __Toolability__ Dado should work well tools and operations like static find
+  5. __Toolability__ Dado should work well with tools and operations like static find
      references, refactoring, minifiers, tree-shakers, etc.
 
 Documentation

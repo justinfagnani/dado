@@ -7,7 +7,7 @@ library dado.utils;
 import 'dart:mirrors';
 import 'key.dart';
 
-Symbol typeName(Type type) => reflectClass(type).qualifiedName;
+Symbol typeName(Type type) => reflectType(type).qualifiedName;
 
 Key makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);
 

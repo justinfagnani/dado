@@ -73,7 +73,7 @@ class Injector {
           'injectors.');
     }
 
-    _bindings[key] = new InjectorBinding(this);
+    _bindings[key] = new _InjectorBinding(this);
 
     modules.forEach(_registerBindings);
 
@@ -257,11 +257,11 @@ class _ParameterResolution {
   
 }
 
-class InjectorBinding extends Binding {
+class _InjectorBinding extends Binding {
   Injector _injector;
   List<Dependency> _dependencies = [];
   
-  InjectorBinding(Injector injector) : 
+  _InjectorBinding(Injector injector) : 
     super(Injector.key, singleton: true) {
     _injector = injector;
   }

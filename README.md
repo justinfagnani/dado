@@ -69,7 +69,7 @@ Use [Pub][pub] and simply add the following to your `pubspec.yaml` file:
 
 ```
 dependencies:
-  dado: 0.5.1
+  dado: 0.6.0
 ```
 
 You can find more details on the [Dado page on Pub][dado_pub]
@@ -83,7 +83,7 @@ Binding Examples
 ```dart
 import 'package:dado/dado.dart';
 
-class MyModule extends Module {
+class MyModule extends DeclarativeModule {
 
   // binding to an instance, similar to bind().toInstance() in Guice
   String serverAddress = "127.0.0.1";
@@ -94,14 +94,15 @@ class MyModule extends Module {
 
   // Methods define a factory binding, similar to bind().to() in Guice
   Bar newBar();
+  
+  SubBaz get subBaz;
 
   // Methods that delegate to bindTo() bind a type to a specific
   // implementation of that type
-  Baz get baz => bindTo(Baz).singleton;
+  Baz baz(SubBaz subBaz) => subBaz;
 
   // Bindings can be made to provider methods
-  Qux newQux() => bindTo(Qux)
-      .providedBy((Foo foo) => new Qux(foo, 'not injected')).newInstance();
+  Qux newQux(Foo foo) => new Qux(foo, 'not injected');
 }
 
 class Bar {
@@ -137,7 +138,6 @@ production yet.
 Known Issues and Limitations
 ----------------------------
 
- * Functions cannot be injected yet.
  * No custom scope support. The only scopes are unscoped and singleton.
    Hierarchical modules might be enough.
  * Modules must extend `Module`. When mixins are better supported in Dart,

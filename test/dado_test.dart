@@ -84,13 +84,13 @@ class HasNoArgsConstructor {
 class HasSatisfiedNamedParameter {
   String a;
 
-  HasSatisfiedNamedParameter({String a}) : this.a = a;
+  HasSatisfiedNamedParameter({String this.a});
 }
 
 class HasNonSatisfiedNamedParameter {
   double a;
 
-  HasNonSatisfiedNamedParameter({double a}) : this.a = a;
+  HasNonSatisfiedNamedParameter({double this.a});
 }
 
 
@@ -112,6 +112,8 @@ class Grault {
   
   Grault(Quux this.quux);
 }
+
+typedef int SomeFunctionType(String someArg);
 
 const A = 'a';
 const B = 'b';
@@ -150,6 +152,8 @@ abstract class Module1 extends DeclarativeModule {
   Baz baz(SubBaz subBaz) => subBaz;
 
   Provided provided(Foo foo) => new Provided(1, foo);
+  
+  SomeFunctionType someFunction(int number) => (String someArg) => number;
 }
 
 abstract class Module2 extends DeclarativeModule {
@@ -224,6 +228,11 @@ main() {
       Baz baz2 = injector.getInstanceOf(Baz);
       expect(baz1, new isInstanceOf<SubBaz>());
       expect(identical(baz1, baz2), true);
+    });
+    
+    test('should return a function', () {
+      SomeFunctionType func = injector.getInstanceOf(SomeFunctionType);
+      expect(func, new isInstanceOf<SomeFunctionType>());
     });
 
     test('should invoke provider methods', () {

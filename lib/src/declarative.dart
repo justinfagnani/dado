@@ -47,6 +47,14 @@ class DeclarativeModule implements Module {
         Key key = new Key(name, annotatedWith: annotation);
         
         if (member.isAbstract) {
+          var typeMirror = member.returnType;
+          
+          if (!(typeMirror is ClassMirror)) {
+            throw new ArgumentError(
+                '${typeMirror.simpleName} is not a class '
+                'and can not be used in a constructor binding.');
+          }
+          
           if (member.isGetter) {
             // Abstract getters define singleton bindings
             _bindings[key] = 

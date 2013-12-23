@@ -58,6 +58,7 @@
 library dado;
 
 export 'src/binding.dart';
+export 'src/declarative.dart';
 export 'src/injector.dart';
 export 'src/key.dart';
 export 'src/module.dart';

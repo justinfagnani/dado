@@ -4,6 +4,7 @@
 
 library dado.injector;
 
+import 'dart:collection';
 import 'dart:mirrors';
 import 'binding.dart';
 import 'key.dart';
@@ -32,7 +33,7 @@ import 'utils.dart' as Utils;
  */
 class Injector {
   // The key that indentifies the default Injector binding.
-  static final Key _injectorKey =
+  static final Key key =
       new Key(reflectClass(Injector).qualifiedName);
 
   /// The parent of this injector, if it's a child, or null.
@@ -72,7 +73,7 @@ class Injector {
           'injectors.');
     }
 
-    _bindings[_injectorKey] = new InstanceBinding(_injectorKey, this, null);
+    _bindings[key] = new InjectorBinding(this);
 
     modules.forEach(_registerBindings);
 
@@ -253,5 +254,21 @@ class _ParameterResolution {
   Map<Symbol, Object> namedParameters;
   
   _ParameterResolution (this.positionalParameters, this.namedParameters);
+  
+}
+
+class InjectorBinding extends Binding {
+  Injector _injector;
+  List<Dependency> _dependencies = [];
+  
+  InjectorBinding(Injector injector) : 
+    super(Injector.key, singleton: true) {
+    _injector = injector;
+  }
+  
+  Object buildInstance(DependencyResolution dependencyResolution) => _injector;
+  
+  Iterable<Dependency> get dependencies => 
+      new UnmodifiableListView(_dependencies);
   
 }

@@ -5,7 +5,7 @@
 library dado.utils;
 
 import 'dart:mirrors';
-import 'injector.dart';
+import 'key.dart';
 
 Symbol typeName(Type type) => reflectClass(type).qualifiedName;
 

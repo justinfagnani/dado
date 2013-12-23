@@ -6,7 +6,7 @@ library dado.binding;
 
 import 'dart:collection';
 import 'dart:mirrors';
-import 'injector.dart';
+import 'key.dart';
 import 'utils.dart' as Utils;
 
 /**

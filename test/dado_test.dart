@@ -116,7 +116,7 @@ class Grault {
 const A = 'a';
 const B = 'b';
 
-abstract class Module1 extends Module {
+abstract class Module1 extends DeclarativeModule {
   int number = 1;
 
   // an instance of a type, similar to bind().toInstance() in Guice
@@ -152,7 +152,7 @@ abstract class Module1 extends Module {
   Provided provided(Foo foo) => new Provided(1, foo);
 }
 
-abstract class Module2 extends Module1 {
+abstract class Module2 extends DeclarativeModule {
 
   Foo foo = new Foo('foo2');
 
@@ -161,7 +161,7 @@ abstract class Module2 extends Module1 {
   Provided getProvided(Foo foo) => new Provided(2, foo);
 }
 
-abstract class Module3 extends Module {
+abstract class Module3 extends DeclarativeModule {
 
   Qux get qux;
   
@@ -170,12 +170,12 @@ abstract class Module3 extends Module {
   Bar newBar(SubBar subBar) => subBar;
 }
 
-abstract class Module4 extends Module {
+abstract class Module4 extends DeclarativeModule {
   // to test that direct cyclical dependencies fail.
   Cycle newCycle();
 }
 
-abstract class Module5 extends Module {
+abstract class Module5 extends DeclarativeModule {
   // to test that indirect cyclical dependencies fail.
   Quux newQuux();
   

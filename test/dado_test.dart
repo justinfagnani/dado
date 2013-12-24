@@ -81,6 +81,18 @@ class HasNoArgsConstructor {
   HasNoArgsConstructor.noArgs();
 }
 
+class HasSatisfiedNamedParameter {
+  String a;
+
+  HasSatisfiedNamedParameter({String this.a});
+}
+
+class HasNonSatisfiedNamedParameter {
+  double a;
+
+  HasNonSatisfiedNamedParameter({double this.a});
+}
+
 
 // Indirect circular dependency tests classes
 class Quux {
@@ -101,10 +113,12 @@ class Grault {
   Grault(Quux this.quux);
 }
 
+typedef int SomeFunctionType(String someArg);
+
 const A = 'a';
 const B = 'b';
 
-abstract class Module1 extends Module {
+abstract class Module1 extends DeclarativeModule {
   int number = 1;
 
   // an instance of a type, similar to bind().toInstance() in Guice
@@ -118,6 +132,8 @@ abstract class Module1 extends Module {
   Foo get foo;
 
   @B Foo get fooB;
+  
+  SubBaz get subBaz;
 
   // a factory binding, similar to bind().to() in Guice
   Bar newBar();
@@ -128,14 +144,19 @@ abstract class Module1 extends Module {
   HasAnnotatedConstructor hasAnnotatedConstructor(); 
   
   HasNoArgsConstructor hasNoArgsConstructor(); 
+  
+  HasSatisfiedNamedParameter hasSatisfiedNamedParameter();
+  
+  HasNonSatisfiedNamedParameter hasNonSatisfiedNamedParameter();
 
-  Baz get baz => bindTo(SubBaz).singleton;
+  Baz baz(SubBaz subBaz) => subBaz;
 
-  Provided get provided => bindTo(Provided)
-      .providedBy((Foo foo) => new Provided(1, foo)).newInstance();
+  Provided provided(Foo foo) => new Provided(1, foo);
+  
+  SomeFunctionType someFunction(int number) => (String someArg) => number;
 }
 
-abstract class Module2 extends Module1 {
+abstract class Module2 extends DeclarativeModule {
 
   Foo foo = new Foo('foo2');
 
@@ -144,19 +165,21 @@ abstract class Module2 extends Module1 {
   Provided getProvided(Foo foo) => new Provided(2, foo);
 }
 
-abstract class Module3 extends Module {
+abstract class Module3 extends DeclarativeModule {
 
   Qux get qux;
+  
+  SubBar get subBar;
 
-  Bar newBar() => bindTo(SubBar).newInstance();
+  Bar newBar(SubBar subBar) => subBar;
 }
 
-abstract class Module4 extends Module {
+abstract class Module4 extends DeclarativeModule {
   // to test that direct cyclical dependencies fail.
   Cycle newCycle();
 }
 
-abstract class Module5 extends Module {
+abstract class Module5 extends DeclarativeModule {
   // to test that indirect cyclical dependencies fail.
   Quux newQuux();
   
@@ -206,6 +229,11 @@ main() {
       expect(baz1, new isInstanceOf<SubBaz>());
       expect(identical(baz1, baz2), true);
     });
+    
+    test('should return a function', () {
+      SomeFunctionType func = injector.getInstanceOf(SomeFunctionType);
+      expect(func, new isInstanceOf<SomeFunctionType>());
+    });
 
     test('should invoke provider methods', () {
       var provided = injector.getInstanceOf(Provided);
@@ -252,6 +280,18 @@ main() {
       expect(o.a, null);
     });
     
+    test('should inject named parameter', () {
+      var o = injector.getInstanceOf(HasSatisfiedNamedParameter);
+      expect(o, new isInstanceOf<HasSatisfiedNamedParameter>());
+      expect(o.a, 'a');
+    });
+    
+    test('should not inject named parameter', () {
+      var o = injector.getInstanceOf(HasNonSatisfiedNamedParameter);
+      expect(o, new isInstanceOf<HasNonSatisfiedNamedParameter>());
+      expect(o.a, null);
+    });
+    
     test('should throw ArgumentError on direct cyclical dependencies', () {
       expect(() => new Injector([Module4]), throwsArgumentError);
     });
@@ -269,7 +309,7 @@ main() {
     setUp((){
       injector = new Injector([Module1], name: 'parent');
       childInjector = new Injector([Module3],
-          newInstances: [Baz, new Key.forType(Foo, annotatedWith: B)],
+          newInstances: [Baz, SubBaz, new Key.forType(Foo, annotatedWith: B)],
           parent: injector,
           name: 'child');
     });

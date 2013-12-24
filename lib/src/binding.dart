@@ -2,95 +2,79 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dado;
+library dado.binding;
+
+import 'key.dart';
 
 /**
  * Bindings define the way that instances of a [Key] are created. They are used
- * to hide all the logic needed to build an instance, store a singleton instance
- * and analyze dependencies.
+ * to hide all the logic needed to build an instance and analyze its 
+ * dependencies.
  * 
  * This is an interface, so there can be several types of Bindings, each one 
  * with its own internal logic to build instances and define its scope.
  */
-abstract class _Binding {
+abstract class Binding {
   final Key key;
-  final InstanceMirror moduleMirror;
   final bool singleton;
   
-  _Binding(Key this.key, InstanceMirror this.moduleMirror, 
-      {bool this.singleton: false});
+  Binding(Key this.key, {bool this.singleton: false});
   
-  Object getInstance(Injector injector) => 
-      buildInstance(injector);
+  Object buildInstance(DependencyResolution dependencyResolution);
   
-  Object buildInstance(Injector injector);
-  
-  Iterable<Key> getDependencies();
+  Iterable<Dependency> get dependencies;
   
 }
 
-class _InstanceBinding extends _Binding {
-  Object _instance;
+/**
+ * Dependencies define what instances are needed to construct a instance of a
+ * binding. A dependency can be nullable, which means it doesn't need to be
+ * satisfied. It can also be positional, which is the case of positional 
+ * arguments of a constructor.
+ */
+class Dependency {
+  /// The name of this dependency. Usually the same name as a parameter.
+  final Symbol name;
   
-  _InstanceBinding(Key key, Object instance, InstanceMirror moduleMirror) : 
-    super(key, moduleMirror, singleton: true) {
-    _instance = instance;
-  }
+  /// The key that identifies the type of this dependency.
+  final Key key;
   
-  Object buildInstance(Injector injector) => _instance;
+  final bool isNullable;
+  final bool isPositional;
   
-  Iterable<Key> getDependencies() => [];
+  /// If this dependency [isPositional], this is its position.
+  final int position;
   
+  Dependency(
+      Symbol this.name,
+      Key this.key, {
+        bool this.isNullable: false, 
+        bool this.isPositional: true, 
+        int this.position: 0
+      });
 }
 
-class _ProviderBinding extends _Binding {
-  final MethodMirror provider;
+/**
+ * A DependencyResolution provides everything that a binding may need to build a
+ * instance.
+ * 
+ * In an analogy to baking a cake, if the [Binding] is a recipe, the 
+ * DependencyResolution would be its ingredients.
+ */
+class DependencyResolution {
+  Map<Dependency, Object> instances;
   
-  _ProviderBinding 
-  (Key key, MethodMirror this.provider, InstanceMirror moduleMirror, 
-      {bool singleton: false}) :
-        super(key, moduleMirror, singleton: singleton);
-  
-  Object buildInstance(Injector injector) {
-    if (moduleMirror == null)
-      return null;
-    
-    moduleMirror.reflectee._currentInjector = injector;
-    moduleMirror.reflectee._currentKey = key;
-    
-    if (!provider.isGetter) {
-      var parameters = injector._resolveParameters(provider.parameters);
-      return moduleMirror
-          .invoke(provider.simpleName, parameters, null).reflectee;
-    } else {
-      return moduleMirror.getField(provider.simpleName).reflectee;
+  DependencyResolution([Map<Dependency, Object> this.instances]) {
+    if (this.instances == null) {
+      this.instances = new Map<Dependency, Object>();
     }
   }
   
-  Iterable<Key> getDependencies() {
-    return provider.parameters.map((parameter) {
-      var name = parameter.type.qualifiedName;
-      var annotation = _getBindingAnnotation(parameter);
-      return new Key(name, annotatedWith: annotation);
-    });
+  Object operator [] (Dependency dependency) {
+    return instances[dependency];
   }
   
-}
-
-class _ConstructorBinding extends _ProviderBinding {
-  
-  _ConstructorBinding 
-    (Key key, MethodMirror constructor, InstanceMirror moduleMirror, 
-        {bool singleton: false}) : 
-      super(key, constructor, moduleMirror, singleton: singleton);
-  
-  @override
-  Object buildInstance(Injector injector) {
-    var parameters = injector._resolveParameters(provider.parameters);
-    var obj = (provider.owner as ClassMirror)
-        .newInstance(provider.constructorName, parameters, null).reflectee;
-    
-    return obj;
+  void operator []=(Dependency dependency, Object instance) {
+      instances[dependency] = instance;
   }
-
 }

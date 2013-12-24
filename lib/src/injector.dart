@@ -62,12 +62,13 @@ class Injector {
    * should create distinct instances for, separate from it's parent.
    * newInstances only apply to singleton bindings.
    */
-  Injector(List<Type> modules, {Injector this.parent, List<Type> newInstances,
-    String this.name})
+  Injector(List<Type> modules, 
+          {Injector this.parent, 
+           List<Type> newInstances,
+           String this.name})
       : _newInstances = (newInstances == null)
-          ? []
-          : newInstances.map(Utils.makeKey).toList(growable: false)
-  {
+          ? [] : newInstances.map(Utils.makeKey).toList(growable: false) {
+            
     if (parent == null && newInstances != null) {
       throw new ArgumentError('newInstances can only be specified for child'
           'injectors.');
@@ -106,7 +107,7 @@ class Injector {
       return _getSingletonOf(key);
     }
 
-    return _buildInstanceOfBinding(binding);
+    return _buildInstanceOf(binding);
   }
 
   Object _getSingletonOf(Key key) {
@@ -115,7 +116,7 @@ class Injector {
         _bindings.containsKey(key)) {
 
       if (!_singletons.containsKey(key)) {
-        _singletons[key] = _buildInstanceOfBinding(_getBinding(key));
+        _singletons[key] = _buildInstanceOf(_getBinding(key));
       }
 
       return _singletons[key];
@@ -150,19 +151,19 @@ class Injector {
     return binding;
   }
   
-  Object _buildInstanceOfBinding (Binding binding) {
+  Object _buildInstanceOf(Binding binding) {
     var dependencyResolution = _resolveDependencies(binding.dependencies);
     return binding.buildInstance(dependencyResolution);
   }
 
-  bool containsBinding(Key key) => _bindings.containsKey(key) ||
-      (parent != null ? parent.containsBinding(key) : false);
+  bool containsBindingOf(Key key) => _bindings.containsKey(key) ||
+      (parent != null ? parent.containsBindingOf(key) : false);
 
   DependencyResolution _resolveDependencies(List<Dependency> dependencies) {
       var dependencyResolution = new DependencyResolution();
       
       dependencies.forEach((dependency) {
-          if (!dependency.isNullable || containsBinding(dependency.key)) {
+          if (!dependency.isNullable || containsBindingOf(dependency.key)) {
             dependencyResolution[dependency] = 
                 _getInstanceOf(dependency.key);
           }
@@ -190,7 +191,7 @@ class Injector {
               parameterClassMirror,
               annotatedWith: annotation);
           
-          if (containsBinding(key)) {
+          if (containsBindingOf(key)) {
             namedParameters[parameter.simpleName] = 
                 getInstanceOf(parameterClassMirror,
                   annotatedWith: annotation);
@@ -235,7 +236,7 @@ class Injector {
 
     var dependencies = binding.dependencies;
     dependencies.forEach((dependency) {
-      if (!dependency.isNullable || containsBinding(dependency.key)) {
+      if (!dependency.isNullable || containsBindingOf(dependency.key)) {
         var dependencyBinding = this._getBinding(dependency.key);
 
         _verifyCircularDependency(dependencyBinding,

@@ -25,7 +25,7 @@
  *
  *     import 'package:dado/dado.dart';
  *
- *     class MyModule extends Module {
+ *     class MyModule extends DeclarativeModule {
  *
  *       // binding to an instance, similar to toInstance() in Guice
  *       String serverAddress = "127.0.0.1";
@@ -38,11 +38,12 @@
  *
  *       // Methods that delegate to bindTo() bind a type to a specific
  *       // implementation of that type
- *       Baz get baz => bindTo(Baz).singleton;
+ *       Baz baz(SubBaz subBaz) => subBaz;
+ *       
+ *       SubBaz get subBaz;
  *
  *       // Bindings can be made to provider methods
- *       Qux newQux() => bindTo(Qux)
- *         .providedBy((Foo foo) => new Qux(foo, 'not injected')).newInstance();
+ *       Qux newQux(Foo foo) => new Qux(foo, 'not injected');
  *       }
  *
  *       class Bar {

@@ -2,6 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/**
+ * Dado's declarative library.
+ * 
+ * This library contains the implementation of the [DeclarativeModule], that is,
+ * as it name suggests, a declarative implementation of [Module].
+ */
 library dado.declarative;
 
 import 'dart:collection';
@@ -12,7 +18,61 @@ import 'key.dart';
 import 'module.dart';
 import 'utils.dart' as Utils;
 
-class DeclarativeModule implements Module {
+
+/**
+ * A declarative implementation of [Module].
+ * 
+ * In this kind of module, bindings are defined in a declarative manner.
+ * 
+ * Bindings are declared with members on a Module. The return type of the member
+ * defines what type the binding is for. The kind of member (variable, getter,
+ * method) defines the type of binding:
+ *
+ * * Variables define instance bindings. The type of the variable is bound to
+ *   its value.
+ * * Abstract getters define singleton bindings.
+ * * Abstract methods define unscoped bindings. A new instance is created every
+ *   time [Injector.getInstance] is called.
+ * * A non-abstract method must return instances of its return type. Getters 
+ *   define singletons.
+ * 
+ * Example
+ * -------
+ *
+ *     import 'package:dado/dado.dart';
+ *
+ *     class MyModule extends DeclarativeModule {
+ *
+ *       // binding to an instance, similar to toInstance() in Guice
+ *       String serverAddress = "127.0.0.1";
+ *
+ *       // Getters define singletons, similar to in(Singleton.class) in Guice
+ *       Foo get foo;
+ *
+ *       // Methods define a factory binding, similar to bind().to() in Guice
+ *       Bar newBar();
+ *
+ *       // Methods that delegate to bindTo() bind a type to a specific
+ *       // implementation of that type
+ *       Baz baz(SubBaz subBaz) => subBaz;
+ *       
+ *       SubBaz get subBaz;
+ *
+ *       // Bindings can be made to provider methods
+ *       Qux newQux(Foo foo) => new Qux(foo, 'not injected');
+ *       }
+ *
+ *       class Bar {
+ *         // A default method is automatically injected with dependencies
+ *         Bar(Foo foo);
+ *       }
+ *
+ *       main() {
+ *         var injector = new Injector([MyModule]);
+ *         Bar bar = injector.getInstance(Bar);
+ *       }
+ */
+abstract class DeclarativeModule implements Module {
   Map<Key, Binding> get bindings {
     if (_bindings == null) {
       _readBindings();
@@ -40,7 +100,7 @@ class DeclarativeModule implements Module {
         var key = new Key(name, annotatedWith: annotation);
         
         _bindings[key] = new _InstanceBinding(key, instance);
-
+        
       } else if (member is MethodMirror) {
         var name = member.returnType.qualifiedName;
         var annotation = Utils.getBindingAnnotation(member);
@@ -123,23 +183,22 @@ class _ProviderBinding extends Binding {
   final MethodMirror provider;
   List<Dependency> _dependencies;
   
-  _ProviderBinding 
-  (Key key, MethodMirror this.provider, InstanceMirror this.moduleMirror, 
-      {bool singleton: false}) :
+  _ProviderBinding(Key key, 
+                   MethodMirror this.provider, 
+                   InstanceMirror this.moduleMirror, 
+                   {bool singleton: false}) :
         super(key, singleton: singleton);
   
   Object buildInstance(DependencyResolution dependencyResolution) {
     if (!provider.isGetter) {
       var positionalArguments = 
-          _getPositionalArgsFromResolution(dependencyResolution);
+            _getPositionalArgsFromResolution(dependencyResolution);
       var namedArguments = 
-          _getNamedArgsFromResolution(dependencyResolution);
-
-      return moduleMirror
-          .invoke(
-              provider.simpleName, 
-              positionalArguments, 
-              namedArguments).reflectee;
+            _getNamedArgsFromResolution(dependencyResolution);
+      
+      return moduleMirror.invoke(provider.simpleName,
+                                  positionalArguments,
+                                  namedArguments).reflectee;
     } else {
       return moduleMirror.getField(provider.simpleName).reflectee;
     }
@@ -210,27 +269,26 @@ class _ProviderBinding extends Binding {
 class _ConstructorBinding extends _ProviderBinding {
   ClassMirror classMirror;
   
-  _ConstructorBinding 
-    (Key key, ClassMirror classMirror, InstanceMirror moduleMirror, 
-        {bool singleton: false}) : 
+  _ConstructorBinding(Key key, 
+                      ClassMirror classMirror, 
+                      InstanceMirror moduleMirror, 
+                      {bool singleton: false}) : 
           super(key, 
                  _selectConstructor(classMirror),
                  moduleMirror, 
-                 singleton: singleton), 
+                 singleton: singleton),
           this.classMirror = classMirror;
   
   @override
   Object buildInstance(DependencyResolution dependencyResolution) {
     var positionalArguments = 
-        _getPositionalArgsFromResolution(dependencyResolution);
+          _getPositionalArgsFromResolution(dependencyResolution);
     var namedArguments = 
-        _getNamedArgsFromResolution(dependencyResolution);
+          _getNamedArgsFromResolution(dependencyResolution);
     
-    var obj = classMirror
-          .newInstance(
-            provider.constructorName, 
-            positionalArguments, 
-            namedArguments).reflectee;
+    var obj = classMirror.newInstance(provider.constructorName,
+                                      positionalArguments,
+                                      namedArguments).reflectee;
     
     return obj;
   }
@@ -240,7 +298,7 @@ class _ConstructorBinding extends _ProviderBinding {
     // Choose contructor using @inject
     MethodMirror selectedConstructor = constructors.firstWhere(
       (constructor) => constructor.metadata.any(
-        (m) => m.reflectee == inject)
+        (metadata) => metadata.reflectee == inject)
       , orElse: () => null);
 
     // In case there is no constructor annotated with @inject, see if there's a
@@ -250,7 +308,8 @@ class _ConstructorBinding extends _ProviderBinding {
         selectedConstructor = constructors.first;
       } else {
         selectedConstructor = constructors.firstWhere(
-            (c) => c.parameters.where((p) => !p.isOptional).length == 0
+            (constructor) => constructor.parameters.where(
+                (parameter) => !parameter.isOptional).length == 0
         , orElse: () =>  null);
       }
     }

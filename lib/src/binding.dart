@@ -8,8 +8,8 @@ import 'key.dart';
 
 /**
  * Bindings define the way that instances of a [Key] are created. They are used
- * to hide all the logic needed to build an instance, store a singleton instance
- * and analyze dependencies.
+ * to hide all the logic needed to build an instance and analyze its 
+ * dependencies.
  * 
  * This is an interface, so there can be several types of Bindings, each one 
  * with its own internal logic to build instances and define its scope.
@@ -26,11 +26,23 @@ abstract class Binding {
   
 }
 
+/**
+ * Dependencies define what instances are needed to construct a instance of a
+ * binding. A dependency can be nullable, which means it doesn't need to be
+ * satisfied. It can also be positional, which is the case of positional 
+ * arguments of a constructor.
+ */
 class Dependency {
+  /// The name of this dependency. Usually the same name as a parameter.
   final Symbol name;
+  
+  /// The key that identifies the type of this dependency.
   final Key key;
+  
   final bool isNullable;
   final bool isPositional;
+  
+  /// If this dependency [isPositional], this is its position.
   final int position;
   
   Dependency(
@@ -42,6 +54,13 @@ class Dependency {
       });
 }
 
+/**
+ * A DependencyResolution provides everything that a binding may need to build a
+ * instance.
+ * 
+ * In an analogy to baking a cake, if the [Binding] is a recipe, the 
+ * DependencyResolution would be its ingredients.
+ */
 class DependencyResolution {
   Map<Dependency, Object> instances;
   

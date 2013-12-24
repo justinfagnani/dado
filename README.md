@@ -95,11 +95,11 @@ class MyModule extends DeclarativeModule {
   // Methods define a factory binding, similar to bind().to() in Guice
   Bar newBar();
   
-  SubBaz get subBaz;
-
   // Methods that delegate to bindTo() bind a type to a specific
   // implementation of that type
   Baz baz(SubBaz subBaz) => subBaz;
+
+  SubBaz get subBaz;
 
   // Bindings can be made to provider methods
   Qux newQux(Foo foo) => new Qux(foo, 'not injected');

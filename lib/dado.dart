@@ -59,446 +59,64 @@ library dado;
 
 import 'dart:mirrors';
 import 'package:inject/inject.dart';
+import 'package:quiver/mirrors.dart' as quiver;
+import 'dart:collection';
 
 part 'src/binding.dart';
-
-Symbol _typeName(Type type) => reflectClass(type).qualifiedName;
-
-Key _makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);
-
-/**
- * Keys are used to resolve instances in an [Injector], they are used to
- * register bindings and request an object at the injection point.
- *
- * Keys consist of a [Symbol] representing the type name and an optional
- * annotation. If you need to create a Key from a [Type] literal, use [forType].
- */
-class Key {
-  final Symbol name;
-  final Object annotation;
-
-  Key(this.name, {Object annotatedWith}) : annotation = annotatedWith {
-    if (name == null) throw new ArgumentError("name must not be null");
-  }
-
-  factory Key.forType(Type type, {Object annotatedWith}) =>
-      new Key(_typeName(type), annotatedWith: annotatedWith);
-
-  bool operator ==(o) => o is Key && o.name == name
-      && o.annotation == annotation;
-
-  int get hashCode => name.hashCode * 37 + annotation.hashCode;
-
-  String toString() => 'Key: $name'
-      '${(annotation!=null?' annotated with $annotation': '')}';
-}
-
-/**
- * An Injector constructs objects based on it's configuration. The Injector
- * tracks dependencies between objects and uses the bindings defined in its
- * modules and parent injector to resolve the dependencies and inject them into
- * newly created objects.
- *
- * Injectors are rarely used directly, usually only at the initialization of an
- * application to create the root objects for the application. The Injector does
- * most of it's work behind the scenes, creating objects as neccessary to
- * fullfill dependencies.
- *
- * Injectors are hierarchical. [createChild] is used to create injectors that
- * inherit their configuration from their parent while adding or overriding
- * some bindings.
- *
- * An Injector contains a default binding for itself, so that it can be used
- * to request instances generically, or to create child injectors. Applications
- * should generally have very little injector aware code.
- *
- */
-class Injector {
-  // The key that indentifies the default Injector binding.
-  static final Key _injectorKey =
-      new Key(reflectClass(Injector).qualifiedName);
-
-  /// The parent of this injector, if it's a child, or null.
-  final Injector parent;
-
-  /// The name of this injector, if one was provided.
-  final String name;
-
-  /*
-   *  The keys for which this injector should provide its own bindings instead
-   *  of using the bindings of it's parent.
-   */
-  final List<Key> _newInstances;
-
-  // The map of bindings and its keys.
-  final Map<Key, _Binding> _bindings = new Map<Key, _Binding>();
-
-  // The map of singleton instances
-  final Map<Key, Object> _singletons = new Map<Key, Object>();
-
-  /**
-   * Constructs a new Injector using [modules] to provide bindings. If [parent]
-   * is specificed, the injector is a child injector that inherits bindings
-   * from its parent. The modules of a child injector add to or override its
-   * parent's bindings. [newInstances] is a list of types that a child injector
-   * should create distinct instances for, separate from it's parent.
-   * newInstances only apply to singleton bindings.
-   */
-  Injector(List<Type> modules, {Injector this.parent, List<Type> newInstances,
-    String this.name})
-      : _newInstances = (newInstances == null)
-          ? []
-          : newInstances.map(_makeKey).toList(growable: false)
-  {
-    if (parent == null && newInstances != null) {
-      throw new ArgumentError('newInstances can only be specified for child'
-          'injectors.');
-    }
-
-    _bindings[_injectorKey] = new _InstanceBinding(_injectorKey, this, null);
-
-    modules.forEach(_registerBindings);
-
-    _bindings.values.forEach((binding) => _verifyCircularDependency(binding));
-  }
-
-  /**
-   * Creates a child of this Injector with the additional modules installed.
-   * [modules] must be a list of Types that extend Module.
-   * [newInstances] is a list of Types that the child should create new
-   * instances for, rather than use an instance from the parent.
-   */
-  Injector createChild(List<Type> modules, {List<Type> newInstances}) =>
-      new Injector(modules, parent: this);
-
-  /**
-   * Returns an instance of [type]. If [annotatedWith] is provided, returns an
-   * instance that was bound with the annotation.
-   */
-  Object getInstanceOf(Type type, {Object annotatedWith}) {
-    var key = new Key(_typeName(type), annotatedWith: annotatedWith);
-
-    return _getInstanceOf(key);
-  }
-
-  Object _getInstanceOf(Key key) {
-    var binding = _getBinding(key);
-
-    if (binding.singleton) {
-      return _getSingletonOf(key);
-    }
-
-    return binding.getInstance(this);
-  }
-
-  Object _getSingletonOf(Key key) {
-    if (parent == null ||
-        _newInstances.contains(key) ||
-        _bindings.containsKey(key)) {
-
-      if (!_singletons.containsKey(key)) {
-        _singletons[key] = _getBinding(key).getInstance(this);
-      }
-
-      return _singletons[key];
-    } else {
-      return parent._getSingletonOf(key);
-    }
-  }
-
-  /**
-   * Execute the function [f], injecting any arguments.
-   */
-  dynamic callInjected(Function f) {
-    var mirror = reflect(f);
-    assert(mirror is ClosureMirror);
-    var parameters = _resolveParameters(mirror.function.parameters);
-    return Function.apply(f, parameters);
-  }
-
-  _Binding _getBinding(Key key) {
-      var binding = _bindings.containsKey(key)
-        ? _bindings[key]
-        : (parent != null)
-            ? parent._getBinding(key)
-            : null;
-
-    if (binding == null) {
-      throw new ArgumentError('$key has no binding.');
-    }
-
-    return binding;
-  }
-
-  bool _containsBinding(Key key) => _bindings.containsKey(key) ||
-      (parent != null ? parent._containsBinding(key) : false);
-
-  List<Object> _resolveParameters(List<ParameterMirror> parameters) =>
-      parameters.where((parameter) => !parameter.isOptional).map(
-          (parameter) =>
-            getInstanceOf((parameter.type as ClassMirror).reflectedType,
-                annotatedWith: _getBindingAnnotation(parameter))
-      ).toList(growable: false);
-
-  void _registerBindings(Type moduleType){
-    var classMirror = reflectClass(moduleType);
-    var moduleMirror = classMirror.newInstance(const Symbol(''), [], null);
-
-    classMirror.declarations.values.forEach((member) {
-      if (member is VariableMirror) {
-        // Variables define "to instance" bindings
-        var instance = moduleMirror.getField(member.simpleName).reflectee;
-        var name = member.type.qualifiedName;
-        var annotation = _getBindingAnnotation(member);
-        var key = new Key(name, annotatedWith: annotation);
-        _bindings[key] = new _InstanceBinding(key, instance, moduleMirror);
-
-      } else if (member is MethodMirror) {
-        var name = member.returnType.qualifiedName;
-        var annotation = _getBindingAnnotation(member);
-        Key key = new Key(name, annotatedWith: annotation);
-        if (member.isAbstract) {
-          if (member.isGetter) {
-            // Abstract getters define singleton bindings
-            _bindings[key] = new _ConstructorBinding(key,
-                _selectConstructor(member.returnType),  moduleMirror,
-                singleton: true);
-          } else {
-            // Abstract methods define unscoped bindings
-            _bindings[key] = new _ConstructorBinding(key,
-                _selectConstructor(member.returnType),  moduleMirror);
-          }
-        } else {
-          // Non-abstract methods produce instances by being invoked.
-          //
-          // In order for the method to use the injector to resolve dependencies
-          // it must be aware of the injector and the type we're trying to
-          // construct so we set the module's _currentInjector and
-          // _currentTypeName in the provider function.
-          //
-          // This is a slightly unfortunately coupling of Module to it's
-          // injector, but the only way we could find to make this work. It's
-          // a worthwhile tradeoff for having declarative bindings.
-          if (member.isGetter) {
-            // getters should define singleton bindings
-            _bindings[key] =
-                new _ProviderBinding(key, member, moduleMirror,
-                    singleton: true);
-          } else {
-            // methods should define unscoped bindings
-            // TODO(justin): allow parameters in module method? This would make
-            // defining provided bindings much shorter when they rebind to a
-            // new type.
-            _bindings[key] =
-                new _ProviderBinding(key, member, moduleMirror);
-          }
-        }
-      }
-    });
-  }
-
-  void _verifyCircularDependency(_Binding binding,
-                                  {List<Key> dependencyStack}) {
-    if (dependencyStack == null) {
-      dependencyStack = [];
-    }
-
-    if (dependencyStack.contains(binding.key)) {
-      dependencyStack.add(binding.key);
-      var stackInfo = dependencyStack.fold(null, (value, dependency) {
-        if (value == null) {
-          return dependency.toString();
-        } else {
-          return '$value =>\n$dependency';
-        }
-      });
-      throw new ArgumentError(
-          'Circular dependency found on type ${binding.key.name}:\n$stackInfo');
-    }
-
-    dependencyStack.add(binding.key);
-
-    var dependencies = binding.getDependencies();
-    dependencies.forEach((dependency) {
-      var dependencyBinding = this._getBinding(dependency);
-
-      _verifyCircularDependency(dependencyBinding,
-          dependencyStack: dependencyStack);
-    });
-
-    dependencyStack.removeLast();
-  }
-
-  MethodMirror _selectConstructor(ClassMirror m) {
-    Iterable<MethodMirror> constructors = _getConstructorsMirrors(m);
-    // Choose contructor using @inject
-    MethodMirror ctor = constructors.firstWhere(
-      (c) => c.metadata.any(
-        (m) => m.reflectee == inject)
-      , orElse: () => null);
-
-    // In case there is no constructor annotated with @inject, see if there's a
-    // single constructor or a no-args.
-    if (ctor == null) {
-      if (constructors.length == 1) {
-        ctor = constructors.first;
-      } else {
-        ctor = constructors.firstWhere(
-            (c) => c.parameters.where((p) => !p.isOptional).length == 0
-        , orElse: () =>  null);
-      }
-    }
-
-    if (ctor == null) {
-      throw new ArgumentError("${m.qualifiedName} must have only "
-        "one constructor, a constructor annotated with @inject or no-args "
-        "constructor");
-    }
-
-    return ctor;
-  }
-
-  /**
-   * Create a new constructor binding for [type]
-   */
-  _Binding _createBindingForType(Type type,
-                            {Object annotatedWith, bool singleton: false}) {
-    var classMirror = reflectClass(type);
-    // Select appropriate constructor
-    MethodMirror ctor = _selectConstructor(classMirror);
-
-    if (ctor == null) {
-      throw new ArgumentError("${classMirror.qualifiedName} must have only "
-        "one constructor, a constructor annotated with @inject or no-args "
-        "constructor");
-    }
-
-    var key = new Key.forType(type, annotatedWith: annotatedWith);
-
-    var binding =
-        new _ConstructorBinding(key, ctor, null, singleton: singleton);
-
-    _bindings[key] = binding;
-
-    return binding;
-  }
-
-  String toString() => 'Injector: $name';
-}
-
-class _Binder {
-  final Injector _injector;
-  final Key _boundKey;
-  final Key _boundToKey;
-
-  _Binder(this._injector, this._boundKey, this._boundToKey);
-
-  Object get singleton {
-    if (!_injector._singletons.containsKey(_boundKey)) {
-      _injector._singletons[_boundKey] =_injector._getInstanceOf(
-          new Key(_boundToKey.name, annotatedWith: _boundToKey.annotation));
-    }
-
-    return _injector._singletons[_boundKey];
-  }
-
-  Object newInstance() => _injector._getInstanceOf(
-      new Key(_boundToKey.name, annotatedWith: _boundToKey.annotation));
-}
-
-/**
- * Returned by [Module.bindTo], defines a binding from one type (the return
- * type of the binding declaration) to another type (the argument to [bindTo]).
- */
-class Binder extends _Binder {
-  Binder._(Injector injector, Key boundKey,
-      Key boundToKey)
-      : super(injector, boundKey, boundToKey);
-
-  ProvidedBinder providedBy(provider) => new ProvidedBinder._(_injector,
-      _boundKey, _boundToKey, provider);
-}
-
-class ProvidedBinder extends _Binder {
-  Function provider;
-
-  ProvidedBinder._(Injector injector, Key boundKey,
-      Key boundToKey, this.provider)
-      : super(injector, boundKey, boundToKey) {
-  }
-
-  Object get singleton {
-    if (!_injector._singletons.containsKey(_boundKey)) {
-      _injector._singletons[_boundKey] = _injector.callInjected(provider);
-    }
-
-    return _injector._singletons[_boundKey];
-  }
-
-  Object newInstance() => _injector.callInjected(provider);
-
-}
-
-/**
- * A Module is a declaration of bindings that instruct an [Injector] how to
- * create objects.
- *
- * Bindings are declared with members on a Module. The return type of the member
- * defines what type the binding is for. The kind of member (variable, getter,
- * method) defines the type of binding:
- *
- * * Variables define instance bindings. The type of the variable is bound to
- *   its value.
- * * Abstract getters define singleton bindings.
- * * Abstract methods define unscoped bindings. A new instance is created every
- *   time [Injector.getInstance] is called.
- * * A non-abstract method must return instances of its return type. Often
- *   this will be done by calling [bindTo] with a type that is bound to, and
- *   then either [Binder.singleton] or [Binder.newInstance] dependeing on
- *   whether the method is a getter or not. Getters define singletons and should
- *   call [Binder.singleton], methods should call [Binder.newInstance].
- */
-abstract class Module {
-  Injector _currentInjector;
-  Key _currentKey;
-
-  Binder bindTo(Type type, {Object annotatedWith}) {
-    assert(_currentInjector != null);
-    assert(_currentKey != null);
-
-    var boundToKey = new Key(_typeName(type), annotatedWith: annotatedWith);
-
-    if (!_currentInjector._containsBinding(boundToKey)) {
-        _currentInjector._createBindingForType(type,
-            annotatedWith: annotatedWith);
-    }
-
-    return new Binder._(_currentInjector, _currentKey, boundToKey);
-  }
-}
-
-Object _getBindingAnnotation (DeclarationMirror declarationMirror) {
-  List<InstanceMirror> metadata;
-  metadata = declarationMirror.metadata;
-
-  if (metadata.isNotEmpty) {
-    // TODO(justin): what do we do when a declaration has multiple
-    // annotations? What does Guice do? We should probably only allow one
-    // binding annotation per declaration, which means we need a way to
-    // identify binding annotations.
-    return metadata.first.reflectee;
-  }
-
-  return null;
-}
-
-List<MethodMirror> _getConstructorsMirrors(ClassMirror classMirror) {
-  var constructors = new List<MethodMirror>();
-
-  classMirror.declarations.values.forEach((declaration) {
-    if ((declaration is MethodMirror) && (declaration.isConstructor))
-        constructors.add(declaration);
-  });
-
-  return constructors;
-}
+part 'src/injector.dart';
+part 'src/module.dart';
+part 'src/key.dart';
+
+//class _Binder {
+//  final Injector _injector;
+//  final Key _boundKey;
+//  final Key _boundToKey;
+//
+//  _Binder(this._injector, this._boundKey, this._boundToKey);
+//
+//  Object get singleton {
+//    if (!_injector._singletons.containsKey(_boundKey)) {
+//      _injector._singletons[_boundKey] =_injector._getInstanceOf(
+//          new Key(_boundToKey.name, annotatedWith: _boundToKey.annotation));
+//    }
+//
+//    return _injector._singletons[_boundKey];
+//  }
+//
+//  Object newInstance() => _injector._getInstanceOf(
+//      new Key(_boundToKey.name, annotatedWith: _boundToKey.annotation));
+//}
+//
+///**
+// * Returned by [Module.bindTo], defines a binding from one type (the return
+// * type of the binding declaration) to another type (the argument to [bindTo]).
+// */
+//class Binder extends _Binder {
+//  Binder._(Injector injector, Key boundKey,
+//      Key boundToKey)
+//      : super(injector, boundKey, boundToKey);
+//
+//  ProvidedBinder providedBy(provider) => new ProvidedBinder._(_injector,
+//      _boundKey, _boundToKey, provider);
+//}
+//
+//class ProvidedBinder extends _Binder {
+//  Function provider;
+//
+//  ProvidedBinder._(Injector injector, Key boundKey,
+//      Key boundToKey, this.provider)
+//      : super(injector, boundKey, boundToKey) {
+//  }
+//
+//  Object get singleton {
+//    if (!_injector._singletons.containsKey(_boundKey)) {
+//      _injector._singletons[_boundKey] = _injector.callInjected(provider);
+//    }
+//
+//    return _injector._singletons[_boundKey];
+//  }
+//
+//  Object newInstance() => _injector.callInjected(provider);
+//
+//}
+//

@@ -8,89 +8,77 @@ part of dado;
  * Bindings define the way that instances of a [Key] are created. They are used
  * to hide all the logic needed to build an instance, store a singleton instance
  * and analyze dependencies.
- * 
- * This is an interface, so there can be several types of Bindings, each one 
+ *
+ * This is an interface, so there can be several types of Bindings, each one
  * with its own internal logic to build instances and define its scope.
  */
 abstract class _Binding {
   final Key key;
-  final InstanceMirror moduleMirror;
   final bool singleton;
-  
-  _Binding(Key this.key, InstanceMirror this.moduleMirror, 
-      {bool this.singleton: false});
-  
-  Object getInstance(Injector injector) => 
-      buildInstance(injector);
-  
-  Object buildInstance(Injector injector);
-  
-  Iterable<Key> getDependencies();
-  
+
+  _Binding(Key this.key, {bool this.singleton: false}) {
+    assert(key != null);
+  }
+
+  Object getInstance(Injector injector);
+
+  Iterable<Key> get dependencies;
+
 }
 
 class _InstanceBinding extends _Binding {
-  Object _instance;
-  
-  _InstanceBinding(Key key, Object instance, InstanceMirror moduleMirror) : 
-    super(key, moduleMirror, singleton: true) {
-    _instance = instance;
-  }
-  
-  Object buildInstance(Injector injector) => _instance;
-  
-  Iterable<Key> getDependencies() => [];
-  
+  final Object _instance;
+  final Iterable<Key> dependencies = [];
+
+  _InstanceBinding(Key key, this._instance) : super(key, singleton: true);
+
+  Object getInstance(Injector injector) => _instance;
+
+  String toString() => "_InstanceBinding($key -> $_instance)";
 }
 
 class _ProviderBinding extends _Binding {
+  final InstanceMirror moduleMirror;
   final MethodMirror provider;
-  
-  _ProviderBinding 
-  (Key key, MethodMirror this.provider, InstanceMirror moduleMirror, 
-      {bool singleton: false}) :
-        super(key, moduleMirror, singleton: singleton);
-  
-  Object buildInstance(Injector injector) {
-    if (moduleMirror == null)
-      return null;
-    
-    moduleMirror.reflectee._currentInjector = injector;
-    moduleMirror.reflectee._currentKey = key;
-    
-    if (!provider.isGetter) {
-      var parameters = injector._resolveParameters(provider.parameters);
-      return moduleMirror
-          .invoke(provider.simpleName, parameters, null).reflectee;
-    } else {
-      return moduleMirror.getField(provider.simpleName).reflectee;
-    }
-  }
-  
-  Iterable<Key> getDependencies() {
-    return provider.parameters.map((parameter) {
+  final List<Key> dependencies = <Key>[];
+
+  _ProviderBinding(Key key, this.provider, this.moduleMirror,
+      {bool singleton: false})
+      : super(key, singleton: singleton) {
+    dependencies.addAll(provider.parameters.map((parameter) {
       var name = parameter.type.qualifiedName;
       var annotation = _getBindingAnnotation(parameter);
       return new Key(name, annotatedWith: annotation);
-    });
+    }));
   }
-  
+
+  Object getInstance(Injector injector) {
+    if (provider.isGetter) { // and not abstract? or is that take care of when
+      // binding is created? If so this logic should be done at binding creation
+      // basically the provider should be a function that the binding can just
+      // call with no extra logic, maybe abstracting away mirrors altogether
+      return moduleMirror.getField(provider.simpleName).reflectee;
+    } else {
+      var parameters = injector._resolveParameters(provider.parameters);
+      return moduleMirror
+          .invoke(provider.simpleName, parameters, null).reflectee;
+    }
+  }
 }
 
 class _ConstructorBinding extends _ProviderBinding {
-  
-  _ConstructorBinding 
-    (Key key, MethodMirror constructor, InstanceMirror moduleMirror, 
-        {bool singleton: false}) : 
-      super(key, constructor, moduleMirror, singleton: singleton);
-  
+
+  _ConstructorBinding(Key key, MethodMirror constructor,
+      InstanceMirror moduleMirror, {bool singleton: false})
+      : super(key, constructor, moduleMirror, singleton: singleton);
+
   @override
-  Object buildInstance(Injector injector) {
+  Object getInstance(Injector injector) {
     var parameters = injector._resolveParameters(provider.parameters);
-    var obj = (provider.owner as ClassMirror)
-        .newInstance(provider.constructorName, parameters, null).reflectee;
-    
+    var obj = (provider.owner as ClassMirror).newInstance(
+        provider.constructorName, parameters, null).reflectee;
     return obj;
   }
 
+  String toString() => "_ConstructorBinding($key -> $provider)";
 }

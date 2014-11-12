@@ -34,7 +34,7 @@ class SubBar extends Bar {
 // object with an unscoped (non-singleton) dependency
 class Baz {
   Bar bar;
-
+  List l;
   Baz(Bar this.bar);
 }
 
@@ -122,9 +122,6 @@ abstract class Module1 implements Module {
   // a factory binding, similar to bind(Bar) in Guice
   Bar newBar();
 
-  // a class that injects the module
-//  NeedsInjector getNeedsInjector();
-
   HasAnnotatedConstructor getHasAnnotatedConstructor();
 
   HasNoArgsConstructor getHasNoArgsConstructor();
@@ -132,8 +129,6 @@ abstract class Module1 implements Module {
   Baz get baz => singleton(SubBaz);
 
   Provided provideProvided(Foo foo) => new Provided(1, foo);
-
-//  Provided getProvided();
 
   TestInjectable getTest();
 }

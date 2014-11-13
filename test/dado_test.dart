@@ -104,7 +104,9 @@ class Grault {
 const A = 'a';
 const B = 'b';
 
-abstract class Module1 implements Module {
+// ooh, boilerplate!
+class Module1 extends _Module1 { noSuchMethod(i) => super.noSuchMethod(i); }
+abstract class _Module1 implements Module {
   int number = 1;
 
   // an instance of a type, similar to bind(String).toInstance('a') in Guice
@@ -126,14 +128,18 @@ abstract class Module1 implements Module {
 
   HasNoArgsConstructor getHasNoArgsConstructor();
 
-  Baz get baz => singleton(SubBaz);
+  // a singleton bound to an impl class, similar to
+  // bind(Baz).to(SubBaz).in(Singleton.class) in Guice
+  @BindTo(SubBaz)
+  Baz get baz;
 
   Provided provideProvided(Foo foo) => new Provided(1, foo);
 
   TestInjectable getTest();
 }
 
-abstract class Module2 implements Module {
+class Module2 extends _Module2 { noSuchMethod(i) => super.noSuchMethod(i); }
+abstract class _Module2 implements Module {
 
   Foo foo = new Foo('foo2');
 
@@ -142,20 +148,24 @@ abstract class Module2 implements Module {
   Provided provideProvided(Foo foo) => new Provided(2, foo);
 }
 
-abstract class BadChildModule implements Module {
+class BadChildModule extends _BadChildModule { noSuchMethod(i) => super.noSuchMethod(i); }
+abstract class _BadChildModule implements Module {
   Foo get foo;
 }
 
-abstract class ChildModule implements Module {
+class ChildModule extends _ChildModule { noSuchMethod(i) => super.noSuchMethod(i); }
+abstract class _ChildModule implements Module {
   Qux get qux;
 }
 
-abstract class Module4 implements Module {
+class Module4 extends _Module4 { noSuchMethod(i) => super.noSuchMethod(i); }
+abstract class _Module4 implements Module {
   // to test that direct cyclical dependencies fail.
   Cycle getCycle();
 }
 
-abstract class Module5 implements Module {
+class Module5 extends _Module5 { noSuchMethod(i) => super.noSuchMethod(i); }
+abstract class _Module5 implements Module {
   // to test that indirect cyclical dependencies fail.
   Quux newQuux(); // => newInstance(Quux);
 
@@ -190,70 +200,42 @@ class TestInjectable {
       this.hasNoArgsConstructor);
 }
 
-class Injector1Module extends Module with Module1 {
-  noSuchMethod(i) => super.noSuchMethod(i);
-}
-
-class Injector1 extends Injector<Injector1Module> {
-  Injector1() : super(null);
+class Injector1 extends Injector {
+  Injector1() : super(modules: [Module1]);
 
   TestInjectable getTestInjectable() => get(TestInjectable);
 }
 
-class Injector2Module extends Module with Module1, Module2 {
-  noSuchMethod(i) => super.noSuchMethod(i);
-}
-
-class Injector2 extends Injector<Injector2Module> {
-  Injector2() : super(null);
+class Injector2 extends Injector {
+  Injector2() : super(modules: [Module1, Module2]);
 
   TestInjectable getTestInjectable() => get(TestInjectable);
-
-//  noSuchMethod(i) => super.noSuchMethod(i);
 }
 
-class ParentInjectorModule extends Module with Module1 {
-  noSuchMethod(i) => super.noSuchMethod(i);
-}
 
-class ParentInjector extends Injector<ParentInjectorModule> {
-  ParentInjector() : super(null);
+class ParentInjector extends Injector {
+  ParentInjector() : super(modules: [Module1]);
+
   TestInjectable getTestInjectable() => get(TestInjectable);
 }
 
-class BadChildInjectorModule extends Module with BadChildModule {
-  noSuchMethod(i) => super.noSuchMethod(i);
-}
-
-class BadChildInjector extends Injector<BadChildInjectorModule>{
-  BadChildInjector(ParentInjector parent) : super(parent);
+class BadChildInjector extends Injector {
+  BadChildInjector(ParentInjector parent) : super(modules: [BadChildModule], parent: parent);
   TestInjectable getTestInjectable() => get(TestInjectable);
 }
 
-class ChildInjectorModule extends Module with ChildModule {
-  noSuchMethod(i) => super.noSuchMethod(i);
-}
-
-class ChildInjector extends Injector<ChildInjectorModule>{
-  ChildInjector(ParentInjector parent) : super(parent);
+class ChildInjector extends Injector {
+  ChildInjector(ParentInjector parent) : super(modules: [ChildModule], parent: parent);
   TestInjectable getTestInjectable() => get(TestInjectable);
   Qux getQux() => get(Qux);
 }
 
-class Injector4Module extends Module with Module4 {
-  noSuchMethod(i) => super.noSuchMethod(i);
+class Injector4 extends Injector {
+  Injector4() : super(modules: [Module4]);
 }
 
-class Injector4 extends Injector<Injector4Module> {
-  Injector4() : super(null);
-}
-
-class Injector5Module extends Module with Module5 {
-  noSuchMethod(i) => super.noSuchMethod(i);
-}
-
-class Injector5 extends Injector<Injector5Module> {
-  Injector5() : super(null);
+class Injector5 extends Injector {
+  Injector5() : super(modules: [Module5]);
 }
 
 main() {

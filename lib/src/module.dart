@@ -21,7 +21,7 @@ part of dado;
  */
 abstract class Module {
 
-  Injector _injector;
+//  Injector _injector;
 
 //  Binder provide(Type type, {Object annotatedWith});
 
@@ -39,14 +39,15 @@ abstract class Module {
 //    return new Binder._(_currentInjector, _currentKey, boundToKey);
 //  }
 
-  dynamic singleton(Type type, {Object annotatedWith}) {
-//    Key key = new Key.forType(type, annotatedWith: annotatedWith);
-//    _injector._ensureBinding(key);
-    return _injector._singleton(type, annotatedWith: annotatedWith);
-  }
-//      bindTo(type, annotatedWith: annotatedWith).singleton;
+//  dynamic singleton(Type type, {Object annotatedWith}) {
+////    Key key = new Key.forType(type, annotatedWith: annotatedWith);
+////    _injector._ensureBinding(key);
+//    return _injector._singleton(type, annotatedWith: annotatedWith);
+//  }
+////      bindTo(type, annotatedWith: annotatedWith).singleton;
+//
+//  dynamic newInstance(Type type, {Object annotatedWith}) =>
+//      _injector._newInstance(type, annotatedWith: annotatedWith);
+//  //      bindTo(type, annotatedWith: annotatedWith).newInstance();
 
-  dynamic newInstance(Type type, {Object annotatedWith}) =>
-      _injector._newInstance(type, annotatedWith: annotatedWith);
-  //      bindTo(type, annotatedWith: annotatedWith).newInstance();
 }

@@ -60,6 +60,7 @@ library dado;
 import 'dart:mirrors';
 import 'package:inject/inject.dart';
 import 'package:quiver/mirrors.dart' as quiver;
+import 'package:quiver/core.dart';
 import 'dart:collection';
 
 part 'src/binding.dart';
@@ -67,56 +68,7 @@ part 'src/injector.dart';
 part 'src/module.dart';
 part 'src/key.dart';
 
-//class _Binder {
-//  final Injector _injector;
-//  final Key _boundKey;
-//  final Key _boundToKey;
-//
-//  _Binder(this._injector, this._boundKey, this._boundToKey);
-//
-//  Object get singleton {
-//    if (!_injector._singletons.containsKey(_boundKey)) {
-//      _injector._singletons[_boundKey] =_injector._getInstanceOf(
-//          new Key(_boundToKey.name, annotatedWith: _boundToKey.annotation));
-//    }
-//
-//    return _injector._singletons[_boundKey];
-//  }
-//
-//  Object newInstance() => _injector._getInstanceOf(
-//      new Key(_boundToKey.name, annotatedWith: _boundToKey.annotation));
-//}
-//
-///**
-// * Returned by [Module.bindTo], defines a binding from one type (the return
-// * type of the binding declaration) to another type (the argument to [bindTo]).
-// */
-//class Binder extends _Binder {
-//  Binder._(Injector injector, Key boundKey,
-//      Key boundToKey)
-//      : super(injector, boundKey, boundToKey);
-//
-//  ProvidedBinder providedBy(provider) => new ProvidedBinder._(_injector,
-//      _boundKey, _boundToKey, provider);
-//}
-//
-//class ProvidedBinder extends _Binder {
-//  Function provider;
-//
-//  ProvidedBinder._(Injector injector, Key boundKey,
-//      Key boundToKey, this.provider)
-//      : super(injector, boundKey, boundToKey) {
-//  }
-//
-//  Object get singleton {
-//    if (!_injector._singletons.containsKey(_boundKey)) {
-//      _injector._singletons[_boundKey] = _injector.callInjected(provider);
-//    }
-//
-//    return _injector._singletons[_boundKey];
-//  }
-//
-//  Object newInstance() => _injector.callInjected(provider);
-//
-//}
-//
+class BindTo {
+  final Type type;
+  const BindTo(this.type);
+}

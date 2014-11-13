@@ -68,8 +68,11 @@ class _ProviderBinding extends _Binding {
 
 class _ConstructorBinding extends _ProviderBinding {
 
-  _ConstructorBinding(Key key, MethodMirror constructor,
-      InstanceMirror moduleMirror, {bool singleton: false})
+  _ConstructorBinding(
+      Key key,
+      MethodMirror constructor,
+      InstanceMirror moduleMirror, {
+      bool singleton: false})
       : super(key, constructor, moduleMirror, singleton: singleton);
 
   @override

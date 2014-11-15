@@ -16,14 +16,18 @@ import 'package:analyzer/src/generated/element.dart';
 /**
  * TODO:
  *
- * Finds imports of dado/dado.dart and replaces them with dado/static.dart
- *
+ * * find subclasses of Injector and generate implementation
  */
 class DadoTransformer extends Transformer with ResolverTransformer  {
   @override
   final Resolvers resolvers;
 
   DadoTransformer(this.resolvers);
+
+  @override
+  Future<bool> isPrimary(AssetId id) => new Future.value(
+      id.extension == '.dart' &&
+      !(id.package == 'dado' && id.path.startsWith('lib')));
 
   Future<bool> shouldApplyResolver(Asset asset) {
     // only transform library files, not parts
@@ -35,17 +39,47 @@ class DadoTransformer extends Transformer with ResolverTransformer  {
   }
 
   @override
-  Future<bool> isPrimary(AssetId id) => new Future.value(id.extension == '.dart');
-
-  @override
   applyResolver(Transform transform, Resolver resolver) {
     var input = transform.primaryInput;
+    print("DadoTransformer.applyResolver: ${input.id.package}|${input.id.path}");
+    print(input);
     var library = resolver.getLibrary(transform.primaryInput.id);
-    // find modules and injectors
+    var dadoLibrary = resolver.getLibraryByName('dado');
+    var metadataLibrary = resolver.getLibraryByName('dado.metadata');
 
+    // find modules and injectors
+    var visitor = new DadoVisitor(dadoLibrary);
+    library.accept(visitor);
+
+    transform.addOutput(input);
+    return new Future.value(true);
   }
 }
 
 class DadoVisitor extends RecursiveElementVisitor {
+  final ClassElement injectorClass;
+  final ClassElement moduleClass;
 
+  DadoVisitor(
+      LibraryElement dadoLibrary)
+      : injectorClass = dadoLibrary.getType('Injector'),
+        moduleClass = dadoLibrary.getType('Module') {
+    assert(injectorClass != null);
+    assert(moduleClass != null);
+    print(injectorClass);
+    print(moduleClass);
+  }
+
+  @override
+  visitClassElement(ClassElement element) {
+    print("class $element ${element.allSupertypes}");
+
+    // TODO: working implements check!
+    if (element.allSupertypes.contains(injectorClass)) {
+      print("$element is Injector");
+    }
+    if (element.allSupertypes.contains(moduleClass)) {
+      print("$element is Module");
+    }
+  }
 }

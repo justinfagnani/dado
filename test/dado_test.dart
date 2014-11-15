@@ -182,7 +182,6 @@ class TestInjectable {
   Bar bar;
   Baz baz;
   Provided provided;
-//  NeedsInjector needsInjector;
   HasAnnotatedConstructor hasAnnotatedConstructor;
   HasNoArgsConstructor hasNoArgsConstructor;
 
@@ -195,7 +194,6 @@ class TestInjectable {
       this.bar,
       this.baz,
       this.provided,
-//      this.needsInjector,
       this.hasAnnotatedConstructor,
       this.hasNoArgsConstructor);
 }
@@ -211,7 +209,6 @@ class Injector2 extends Injector {
 
   TestInjectable getTestInjectable() => get(TestInjectable);
 }
-
 
 class ParentInjector extends Injector {
   ParentInjector() : super(modules: [Module1]);

@@ -57,18 +57,12 @@
  */
 library dado;
 
-import 'dart:mirrors';
-import 'package:inject/inject.dart';
-import 'package:quiver/mirrors.dart' as quiver;
+import 'src/mirrors/mirrors.dart' as impl;
 import 'package:quiver/core.dart';
-import 'dart:collection';
 
-part 'src/binding.dart';
+export 'package:inject/inject.dart';
+export 'package:dado/src/metadata.dart';
+
 part 'src/injector.dart';
 part 'src/module.dart';
 part 'src/key.dart';
-
-class BindTo {
-  final Type type;
-  const BindTo(this.type);
-}

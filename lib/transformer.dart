@@ -13,6 +13,12 @@ import 'dart:async';
 import 'package:analyzer/src/generated/element.dart';
 
 
+/**
+ * TODO:
+ *
+ * Finds imports of dado/dado.dart and replaces them with dado/static.dart
+ *
+ */
 class DadoTransformer extends Transformer with ResolverTransformer  {
   @override
   final Resolvers resolvers;

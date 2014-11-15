@@ -19,35 +19,4 @@ part of dado;
  *   whether the method is a getter or not. Getters define singletons and should
  *   call [Binder.singleton], methods should call [Binder.newInstance].
  */
-abstract class Module {
-
-//  Injector _injector;
-
-//  Binder provide(Type type, {Object annotatedWith});
-
-//  {
-//    assert(_currentInjector != null);
-//    assert(_currentKey != null);
-//
-//    var boundToKey = new Key(_typeName(type), annotatedWith: annotatedWith);
-//
-//    if (!_currentInjector._containsBinding(boundToKey)) {
-//        _currentInjector._createBindingForType(type,
-//            annotatedWith: annotatedWith);
-//    }
-//
-//    return new Binder._(_currentInjector, _currentKey, boundToKey);
-//  }
-
-//  dynamic singleton(Type type, {Object annotatedWith}) {
-////    Key key = new Key.forType(type, annotatedWith: annotatedWith);
-////    _injector._ensureBinding(key);
-//    return _injector._singleton(type, annotatedWith: annotatedWith);
-//  }
-////      bindTo(type, annotatedWith: annotatedWith).singleton;
-//
-//  dynamic newInstance(Type type, {Object annotatedWith}) =>
-//      _injector._newInstance(type, annotatedWith: annotatedWith);
-//  //      bindTo(type, annotatedWith: annotatedWith).newInstance();
-
-}
+abstract class Module {}

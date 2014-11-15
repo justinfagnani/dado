@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dado;
+part of dado.mirrors;
 
 /**
  * Bindings define the way that instances of a [Key] are created. They are used
@@ -46,9 +46,9 @@ class _ProviderBinding extends _Binding {
       {bool singleton: false})
       : super(key, singleton: singleton) {
     dependencies.addAll(provider.parameters.map((parameter) {
-      var name = parameter.type.qualifiedName;
+//      var name = parameter.type.qualifiedName;
       var annotation = _getBindingAnnotation(parameter);
-      return new Key(name, annotatedWith: annotation);
+      return new Key.forType(parameter.type.reflectedType, annotatedWith: annotation);
     }));
   }
 

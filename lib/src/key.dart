@@ -10,21 +10,24 @@ Key _makeKey(dynamic k) => (k is Key) ? k : new Key.forType(k);
  * annotation. If you need to create a Key from a [Type] literal, use [forType].
  */
 class Key {
-  final Symbol name;
+  final Type type;
+//  final Symbol name;
   final Object annotation;
 
-  Key(this.name, {Object annotatedWith}) : annotation = annotatedWith {
-    if (name == null) throw new ArgumentError("name must not be null");
-  }
+//  Key(this.name, {Object annotatedWith}) : annotation = annotatedWith {
+//    if (name == null) throw new ArgumentError("name must not be null");
+//  }
 
-  Key.forType(Type type, {Object annotatedWith}) :
-      this(quiver.getTypeName(type), annotatedWith: annotatedWith);
+  Key.forType(Type this.type, {Object annotatedWith})
+      : annotation = annotatedWith;
+//      this(getTypeName(type), annotatedWith: annotatedWith);
 
-  bool operator ==(o) => o is Key && o.name == name
+  bool operator ==(o) => o is Key
+      && o.type == type
       && o.annotation == annotation;
 
-  int get hashCode => name.hashCode * 37 + annotation.hashCode;
+  int get hashCode => hash2(type, annotation);
 
-  String toString() => 'Key: $name'
+  String toString() => 'Key: $type'
       '${(annotation!=null?' annotated with $annotation': '')}';
 }
